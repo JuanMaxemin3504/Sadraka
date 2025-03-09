@@ -1,16 +1,39 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { db, storage } from "../../firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, query, getDocs, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import NavBarMenuAdmin from "../NavBars/NavBarMenuAdmin";
+
+const urlImagenBlanco = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.firebasestorage.app/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549"
 
 function CreacionPlatilloMenu() {
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [file, setFile] = useState(null);
-  const [ingredientes, setIngredientes] = useState([]);
+  const [listaIngredientes, setListaIngredientes] = useState([]); // Lista completa de ingredientes
+  const [ingredientesSeleccionados, setIngredientesSeleccionados] = useState([]); // Ingredientes seleccionados con cantidad
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Obtener la lista de ingredientes al cargar el componente
+  useEffect(() => {
+    const ObtenerInventario = async () => {
+      try {
+        const productosRef = collection(db, "products");
+        const q = query(productosRef);
+        const querySnapshot = await getDocs(q);
+        const productsData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setListaIngredientes(productsData);
+      } catch (error) {
+        console.error("Error obteniendo los productos: ", error);
+      }
+    };
+
+    ObtenerInventario();
+  }, []);
 
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
@@ -18,26 +41,52 @@ function CreacionPlatilloMenu() {
     }
   };
 
-  const handleIngredienteChange = (index, field, value) => {
-    const nuevosIngredientes = [...ingredientes];
-    nuevosIngredientes[index][field] = value;
-    setIngredientes(nuevosIngredientes);
+  // Manejar la selección de ingredientes
+  const handleCheckboxChange = (ingrediente) => {
+    const existe = ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id);
+
+    if (existe) {
+      // Si el ingrediente ya está seleccionado, quitarlo de la lista
+      setIngredientesSeleccionados((prev) =>
+        prev.filter((ing) => ing.id !== ingrediente.id)
+      );
+    } else {
+      // Si no está seleccionado, agregarlo con cantidad 1 (valor mínimo)
+      setIngredientesSeleccionados((prev) => [
+        ...prev,
+        { ...ingrediente, cantidad: 1 }, // Inicializar con cantidad 1
+      ]);
+    }
   };
 
-  const agregarIngrediente = () => {
-    setIngredientes([...ingredientes, { nombre: "", cantidad: 0, unitario: false }]);
-  };
+  // Manejar el cambio de cantidad para un ingrediente seleccionado
+  const handleCantidadChange = (id, cantidad) => {
+    const nuevaCantidad = parseFloat(cantidad);
+    if (nuevaCantidad < 1) {
+      alert("La cantidad no puede ser menor a 1.");
+      return;
+    }
 
-  const eliminarIngrediente = (index) => {
-    const nuevosIngredientes = ingredientes.filter((_, i) => i !== index);
-    setIngredientes(nuevosIngredientes);
+    setIngredientesSeleccionados((prev) =>
+      prev.map((ing) =>
+        ing.id === id ? { ...ing, cantidad: nuevaCantidad } : ing
+      )
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!nombre || !precio || !descripcion || ingredientes.length === 0) {
-      alert("Por favor, completa todos los campos y agrega al menos un ingrediente.");
+    // Validar que todos los campos estén completos
+    if (!nombre || !precio || !descripcion || ingredientesSeleccionados.length === 0) {
+      alert("Por favor, completa todos los campos y selecciona al menos un ingrediente.");
+      return;
+    }
+
+    // Validar que la cantidad de cada ingrediente sea mayor o igual a 1
+    const cantidadInvalida = ingredientesSeleccionados.some((ing) => ing.cantidad < 1);
+    if (cantidadInvalida) {
+      alert("La cantidad de cada ingrediente debe ser mayor o igual a 1.");
       return;
     }
 
@@ -55,6 +104,9 @@ function CreacionPlatilloMenu() {
         await uploadBytes(storageRef, file);
         downloadUrl = await getDownloadURL(storageRef);
       }
+      if(downloadUrl == ""){
+        downloadUrl = urlImagenBlanco
+      }
 
       const platillo = {
         nombre,
@@ -62,10 +114,11 @@ function CreacionPlatilloMenu() {
         descripcion,
         url: downloadUrl,
         estatus: true, // Estatus siempre comienza en true
-        ingredientes: ingredientes.map((ing) => ({
+        ingredientes: ingredientesSeleccionados.map((ing) => ({
+          id: ing.id,
           nombre: ing.nombre,
-          cantidad: parseFloat(ing.cantidad),
-          unitario: ing.unitario,
+          cantidad: ing.cantidad,
+          unitario: ing.ingreso !== "KG", // Si no es KG, es unitario
         })),
       };
 
@@ -78,7 +131,7 @@ function CreacionPlatilloMenu() {
       setPrecio("");
       setDescripcion("");
       setFile(null);
-      setIngredientes([]);
+      setIngredientesSeleccionados([]);
     } catch (error) {
       console.error("Error al crear el platillo:", error);
       alert("Hubo un error al crear el platillo.");
@@ -137,48 +190,31 @@ function CreacionPlatilloMenu() {
 
           <div style={{ marginBottom: "15px" }}>
             <label>Ingredientes:</label>
-            {ingredientes.map((ingrediente, index) => (
-              <div key={index} style={{ marginBottom: "10px" }}>
-                <input
-                  type="text"
-                  placeholder="Nombre del ingrediente"
-                  value={ingrediente.nombre}
-                  onChange={(e) => handleIngredienteChange(index, "nombre", e.target.value)}
-                  required
-                  style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
-                />
-                <input
-                  type="number"
-                  placeholder="Cantidad"
-                  value={ingrediente.cantidad}
-                  onChange={(e) => handleIngredienteChange(index, "cantidad", e.target.value)}
-                  required
-                  style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
-                />
+            {listaIngredientes.map((ingrediente) => (
+              <div key={ingrediente.id} style={{ marginBottom: "10px" }}>
                 <label>
                   <input
                     type="checkbox"
-                    checked={ingrediente.unitario}
-                    onChange={(e) => handleIngredienteChange(index, "unitario", e.target.checked)}
+                    checked={ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id)}
+                    onChange={() => handleCheckboxChange(ingrediente)}
                   />
-                  Unitario
+                  {ingrediente.nombre}
                 </label>
-                <button
-                  type="button"
-                  onClick={() => eliminarIngrediente(index)}
-                  style={{ marginLeft: "10px" }}
-                >
-                  Eliminar
-                </button>
+                {ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id) && (
+                  <input
+                    type="number"
+                    placeholder="Cantidad"
+                    value={
+                      ingredientesSeleccionados.find((ing) => ing.id === ingrediente.id)?.cantidad
+                    }
+                    onChange={(e) => handleCantidadChange(ingrediente.id, e.target.value)}
+                    min="1" // Establecer el valor mínimo
+                    required
+                    style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
+                  />
+                )}
               </div>
             ))}
-            <button
-              type="button"
-              onClick={agregarIngrediente}
-              style={{ marginTop: "10px" }}
-            >
-              Agregar Ingrediente
-            </button>
           </div>
 
           <button
