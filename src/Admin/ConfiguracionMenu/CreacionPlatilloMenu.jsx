@@ -4,36 +4,55 @@ import { collection, query, getDocs, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import NavBarMenuAdmin from "../NavBars/NavBarMenuAdmin";
 
-const urlImagenBlanco = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.firebasestorage.app/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549"
+const urlImagenBlanco = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.firebasestorage.app/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549";
 
 function CreacionPlatilloMenu() {
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [file, setFile] = useState(null);
-  const [listaIngredientes, setListaIngredientes] = useState([]); // Lista completa de ingredientes
-  const [ingredientesSeleccionados, setIngredientesSeleccionados] = useState([]); // Ingredientes seleccionados con cantidad
+  const [listaIngredientes, setListaIngredientes] = useState([]);
+  const [listaMenu, setListaMenu] = useState([]);
+  const [ingredientesSeleccionados, setIngredientesSeleccionados] = useState([]);
+  const [extrasSeleccionados, setExtrasSeleccionados] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Obtener la lista de ingredientes al cargar el componente
   useEffect(() => {
-    const ObtenerInventario = async () => {
-      try {
-        const productosRef = collection(db, "products");
-        const q = query(productosRef);
-        const querySnapshot = await getDocs(q);
-        const productsData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setListaIngredientes(productsData);
-      } catch (error) {
-        console.error("Error obteniendo los productos: ", error);
-      }
-    };
-
     ObtenerInventario();
+    ObtenerMenu();
   }, []);
+
+  const ObtenerMenu = async () => {
+    try {
+      const productosRef = collection(db, "menu");
+      const q = query(productosRef);
+      const querySnapshot = await getDocs(q);
+      const productsData = [];
+
+      querySnapshot.forEach((doc) => {
+        productsData.push({ id: doc.id, ...doc.data() });
+      });
+
+      setListaMenu(productsData);
+    } catch (error) {
+      console.error("Error obteniendo los productos: ", error);
+    }
+  };
+
+  const ObtenerInventario = async () => {
+    try {
+      const productosRef = collection(db, "products");
+      const q = query(productosRef);
+      const querySnapshot = await getDocs(q);
+      const productsData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setListaIngredientes(productsData);
+    } catch (error) {
+      console.error("Error obteniendo los productos: ", error);
+    }
+  };
 
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
@@ -41,25 +60,36 @@ function CreacionPlatilloMenu() {
     }
   };
 
-  // Manejar la selección de ingredientes
   const handleCheckboxChange = (ingrediente) => {
     const existe = ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id);
 
     if (existe) {
-      // Si el ingrediente ya está seleccionado, quitarlo de la lista
       setIngredientesSeleccionados((prev) =>
         prev.filter((ing) => ing.id !== ingrediente.id)
       );
     } else {
-      // Si no está seleccionado, agregarlo con cantidad 1 (valor mínimo)
       setIngredientesSeleccionados((prev) => [
         ...prev,
-        { ...ingrediente, cantidad: 1 }, // Inicializar con cantidad 1
+        { ...ingrediente, cantidad: 1 },
       ]);
     }
   };
 
-  // Manejar el cambio de cantidad para un ingrediente seleccionado
+  const handleCheckboxChangeExtras = (extra) => {
+    const existe = extrasSeleccionados.some((ext) => ext.id === extra.id);
+
+    if (existe) {
+      setExtrasSeleccionados((prev) =>
+        prev.filter((ext) => ext.id !== extra.id)
+      );
+    } else {
+      setExtrasSeleccionados((prev) => [
+        ...prev,
+        { ...extra, costo: 0, extra: true },
+      ]);
+    }
+  };
+
   const handleCantidadChange = (id, cantidad) => {
     const nuevaCantidad = parseFloat(cantidad);
     if (nuevaCantidad < 1) {
@@ -74,16 +104,36 @@ function CreacionPlatilloMenu() {
     );
   };
 
+  const handleCostoChangeExtras = (id, costo) => {
+    const nuevoCosto = parseFloat(costo);
+    if (nuevoCosto < 0) {
+      alert("El costo no puede ser menor a 0.");
+      return;
+    }
+
+    setExtrasSeleccionados((prev) =>
+      prev.map((ext) =>
+        ext.id === id ? { ...ext, costo: nuevoCosto } : ext
+      )
+    );
+  };
+
+  const handleExtraChange = (id, extra) => {
+    setExtrasSeleccionados((prev) =>
+      prev.map((ext) =>
+        ext.id === id ? { ...ext, extra: extra === "true" } : ext
+      )
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validar que todos los campos estén completos
     if (!nombre || !precio || !descripcion || ingredientesSeleccionados.length === 0) {
       alert("Por favor, completa todos los campos y selecciona al menos un ingrediente.");
       return;
     }
 
-    // Validar que la cantidad de cada ingrediente sea mayor o igual a 1
     const cantidadInvalida = ingredientesSeleccionados.some((ing) => ing.cantidad < 1);
     if (cantidadInvalida) {
       alert("La cantidad de cada ingrediente debe ser mayor o igual a 1.");
@@ -104,8 +154,8 @@ function CreacionPlatilloMenu() {
         await uploadBytes(storageRef, file);
         downloadUrl = await getDownloadURL(storageRef);
       }
-      if(downloadUrl == ""){
-        downloadUrl = urlImagenBlanco
+      if (downloadUrl === "") {
+        downloadUrl = urlImagenBlanco;
       }
 
       const platillo = {
@@ -113,12 +163,18 @@ function CreacionPlatilloMenu() {
         precio: parseFloat(precio),
         descripcion,
         url: downloadUrl,
-        estatus: true, // Estatus siempre comienza en true
+        estatus: true,
         ingredientes: ingredientesSeleccionados.map((ing) => ({
           id: ing.id,
           nombre: ing.nombre,
           cantidad: ing.cantidad,
-          unitario: ing.ingreso !== "KG", // Si no es KG, es unitario
+          unitario: ing.ingreso !== "KG",
+        })),
+        extras: extrasSeleccionados.map((ext) => ({
+          id: ext.id,
+          nombre: ext.nombre,
+          costo: ext.costo,
+          extra: ext.extra,
         })),
       };
 
@@ -126,12 +182,12 @@ function CreacionPlatilloMenu() {
       console.log("Platillo creado con ID:", docRef.id);
       alert("Platillo creado correctamente.");
 
-      // Limpiar el formulario
       setNombre("");
       setPrecio("");
       setDescripcion("");
       setFile(null);
       setIngredientesSeleccionados([]);
+      setExtrasSeleccionados([]);
     } catch (error) {
       console.error("Error al crear el platillo:", error);
       alert("Hubo un error al crear el platillo.");
@@ -198,7 +254,7 @@ function CreacionPlatilloMenu() {
                     checked={ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id)}
                     onChange={() => handleCheckboxChange(ingrediente)}
                   />
-                  {ingrediente.nombre}
+                  {ingrediente.nombre} :
                 </label>
                 {ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id) && (
                   <input
@@ -208,10 +264,55 @@ function CreacionPlatilloMenu() {
                       ingredientesSeleccionados.find((ing) => ing.id === ingrediente.id)?.cantidad
                     }
                     onChange={(e) => handleCantidadChange(ingrediente.id, e.target.value)}
-                    min="1" // Establecer el valor mínimo
+                    min="1"
                     required
                     style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
                   />
+                )}
+                {" "} {ingrediente.ingreso === "KG" ? "Gramos" : "Unidades"}
+              </div>
+            ))}
+          </div>
+
+
+          <div style={{ marginBottom: "15px" }}>
+            <label>Extras:</label>
+            {listaMenu.map((platillo) => (
+              <div key={platillo.id} style={{ marginBottom: "10px" }}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={extrasSeleccionados.some((ext) => ext.id === platillo.id)}
+                    onChange={() => handleCheckboxChangeExtras(platillo)}
+                  />
+                  {platillo.nombre} :
+                </label>
+                {extrasSeleccionados.some((ext) => ext.id === platillo.id) && (
+                  <>
+                  <br/>
+                  Costo
+                    <input
+                      type="number"
+                      placeholder="Costo"
+                      value={
+                        extrasSeleccionados.find((ext) => ext.id === platillo.id)?.costo
+                      }
+                      onChange={(e) => handleCostoChangeExtras(platillo.id, e.target.value)}
+                      min="0"
+                      required
+                      style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
+                    />
+                    El platillo es un extra?
+                    <select
+                      value={extrasSeleccionados.find((ext) => ext.id === platillo.id)?.extra ? "true" : "false"}
+                      onChange={(e) => handleExtraChange(platillo.id, e.target.value)}
+                      required
+                      style={{ width: "100%", padding: "8px" }}
+                    >
+                      <option value="true">Sí</option>
+                      <option value="false">No</option>
+                    </select>
+                  </>
                 )}
               </div>
             ))}

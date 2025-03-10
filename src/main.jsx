@@ -21,6 +21,7 @@ import AgregarMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/Agregar
 
 import MenuAdmin from './Admin/ConfiguracionMenu/MenuAdmin';
 import CreacionPlatilloMenu from './Admin/ConfiguracionMenu/CreacionPlatilloMenu';
+import EdicionMenuAdmin from './Admin/ConfiguracionMenu/EdicionMenuAdmin';
 
 
 createRoot(document.getElementById('root')).render(
@@ -42,7 +43,8 @@ createRoot(document.getElementById('root')).render(
 
         { /* Rutas Menu */}
         <Route path="/menu_admin" element={ <MenuAdmin/> } />    
-        <Route path="/crear_platillo" element={ <CreacionPlatilloMenu/> } />    
+        <Route path="/crear_platillo" element={ <CreacionPlatilloMenu/> } />
+        <Route path="/edicion_platillo/:id" element={ <EdicionMenuAdmin/> } />
         
         
         <Route path="/" element={<Navigate to="/login" />} />

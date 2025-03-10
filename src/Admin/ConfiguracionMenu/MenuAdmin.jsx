@@ -5,7 +5,8 @@ import { Link } from "react-router-dom";
 import { deleteObject, ref } from "firebase/storage";
 import NavBarMenuAdmin from "../NavBars/NavBarMenuAdmin";
 
-// Función para obtener los productos del menú
+const urlImagenBlanco = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.firebasestorage.app/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549";
+
 const getProducts = async () => {
     try {
         const productosRef = collection(db, "menu");
@@ -25,14 +26,13 @@ const getProducts = async () => {
 };
 
 function MenuAdmin() {
-    const [products, setProducts] = useState([]); // Estado para almacenar los productos
+    const [products, setProducts] = useState([]);
 
     useEffect(() => {
         console.log("Cargando productos al montar el componente...");
         loadProducts();
     }, []);
 
-    // Función para cargar los productos
     const loadProducts = async () => {
         console.log("Cargando productos...");
         const productsData = await getProducts();
@@ -42,46 +42,47 @@ function MenuAdmin() {
 
     const handleDelete = async (productId, url) => {
         try {
-          if (url != urlImagenBlanco) {
-            const startIndex = url.indexOf("/o/") + 3;
-            const endIndex = url.indexOf("?alt=media");
-            const encodedFilePath = url.substring(startIndex, endIndex);
-            const filePath = decodeURIComponent(encodedFilePath);
-            const fileRef = ref(storage, filePath);
-            try {
-              await deleteObject(fileRef);
-              console.log("Archivo eliminado correctamente.");
-            } catch (error) {
-              console.error("Error al eliminar el archivo:", error);
+            if (url != urlImagenBlanco) {
+                const startIndex = url.indexOf("/o/") + 3;
+                const endIndex = url.indexOf("?alt=media");
+                const encodedFilePath = url.substring(startIndex, endIndex);
+                const filePath = decodeURIComponent(encodedFilePath);
+                const fileRef = ref(storage, filePath);
+                try {
+                    await deleteObject(fileRef);
+                    console.log("Archivo eliminado correctamente.");
+                } catch (error) {
+                    console.error("Error al eliminar el archivo:", error);
+                }
             }
-          }
-          await deleteDoc(doc(db, "menu", productId));
-          alert("Producto eliminado correctamente.");
-          loadProducts();
+            await deleteDoc(doc(db, "menu", productId));
+            alert("Producto eliminado correctamente.");
+            loadProducts();
         } catch (error) {
-          console.error("Error al eliminar el producto:", error);
-          alert("Hubo un error al eliminar el producto.");
+            console.error("Error al eliminar el producto:", error);
+            alert("Hubo un error al eliminar el producto.");
         }
-      };
-    
-      const handleStatus = async (productId, estatus) => {
+    };
+
+    const handleStatus = async (productId, estatus) => {
         try {
-          const productRef = doc(db, "menu", productId);
-          if (estatus == true) {
-            await updateDoc(productRef, {
-              estatus: false
-            });
-          } else {
-            await updateDoc(productRef, {
-              estatus: true
-            });
-          }
-          window.location.reload();
+            const productRef = doc(db, "menu", productId);
+            if (estatus == true) {
+                await updateDoc(productRef, {
+                    estatus: false
+                });
+            } else {
+                await updateDoc(productRef, {
+                    estatus: true
+                });
+            }
+            window.location.reload();
         } catch (error) {
-          console.error("Error al actualizar el producto:", error);
-          alert("Hubo un error al actualizar el producto.");
+            console.error("Error al actualizar el producto:", error);
+            alert("Hubo un error al actualizar el producto.");
         }
-      }
+    }
+
 
     return (
         <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
@@ -96,6 +97,7 @@ function MenuAdmin() {
                             <th style={{ padding: '10px', textAlign: 'center' }}>Precio</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Descripción</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Ingredientes</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}>Complementos y extras</th>
                             <th></th>
                             <th></th>
                             <th></th>
@@ -125,8 +127,27 @@ function MenuAdmin() {
                                     ))}
                                 </td>
 
+                                <td style={{ padding: '10px', textAlign: 'center' }}>
+                                    {product.extras == null ?
+                                        "Este platillo no tiene extras o complementos"
+                                        :
+                                        product.extras
+                                            .sort((a, b) => {
+                                                if (a.extra === b.extra) {
+                                                    return a.nombre.localeCompare(b.nombre);
+                                                }
+                                                return a.extra ? 1 : -1;
+                                            })
+                                            .map((ob, index) => (
+                                                <div key={index}>
+                                                    {ob.extra === true ? "Extra" : "Complemento"}: {ob.nombre}
+                                                </div>
+                                            ))
+                                    }
+                                </td>
+
                                 <td style={{ textAlign: 'center' }}>
-                                    <Link to={`/edicion_inventario/${product.id}`}>
+                                    <Link to={`/edicion_platillo/${product.id}`}>
                                         <button
                                             disabled={product.baja}
                                             style={{
