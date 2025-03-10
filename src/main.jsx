@@ -8,7 +8,6 @@ import AdminPaginaAdmin from './Admin/AdminPaginaPrincipal';
 import MeserosPaginaPrincipal from './Meseros/MeserosPaginaPrincipal';
 
 { /* Imports Inventario y merma */}
-
 import InventarioAdmin from './Admin/ConfiguracionInvetario/InvenarioAdmin';
 import EdicionInventarioAdmin from './Admin/ConfiguracionInvetario/EdicionInventarioAdmin';
 import AgregarInventarioAdmin from './Admin/ConfiguracionInvetario/AgregarInventarioAdmin';
@@ -17,8 +16,10 @@ import PrincipalMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/Princ
 import EdicionMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/EdicionMermaAdmin';
 import AgregarMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/AgregarMermaAdmin';
 
-{ /* Import Menu admin */}
+{ /* Import Usuarios Admin */}
+import UsuariosAdmin from './Admin/ConfiguracionUsuarios/UsuariosAdmin';
 
+{ /* Import Menu admin */}
 import MenuAdmin from './Admin/ConfiguracionMenu/MenuAdmin';
 import CreacionPlatilloMenu from './Admin/ConfiguracionMenu/CreacionPlatilloMenu';
 import EdicionMenuAdmin from './Admin/ConfiguracionMenu/EdicionMenuAdmin';
@@ -41,10 +42,15 @@ createRoot(document.getElementById('root')).render(
         <Route path="/edicion_merma" element={<EdicionMermaAdmin/>} />
         <Route path="/agregar_merma" element={<AgregarMermaAdmin/>} />
 
+        { /* Rutas Usuarios */}
+        <Route path="/usuarios" element={ <UsuariosAdmin/> } />    
+
+
         { /* Rutas Menu */}
         <Route path="/menu_admin" element={ <MenuAdmin/> } />    
         <Route path="/crear_platillo" element={ <CreacionPlatilloMenu/> } />
         <Route path="/edicion_platillo/:id" element={ <EdicionMenuAdmin/> } />
+
         
         
         <Route path="/" element={<Navigate to="/login" />} />

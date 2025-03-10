@@ -11,7 +11,7 @@ function AdminPaginaPrincipal() {
 
                     {/* Contenido principal */}
                     <div style={{ flex: 1, padding: '20px', backgroundColor: '#f5f5f5' }}>
-                        {/* Tres recuadros de texto plano */}
+
                         <Grid container spacing={3} style={{ marginBottom: '20px' }}>
                             <Grid item xs={4}>
                                 <Paper style={{ padding: '20px', textAlign: 'center' }}>
@@ -33,7 +33,6 @@ function AdminPaginaPrincipal() {
                             </Grid>
                         </Grid>
 
-                        {/* Seis enlaces a otros JSX */}
                         <Grid container spacing={3}>
                             <Grid item xs={4}>
                                 <Link href="/menu_admin" underline="none">
@@ -43,7 +42,7 @@ function AdminPaginaPrincipal() {
                                 </Link>
                             </Grid>
                             <Grid item xs={4}>
-                                <Link href="/configuracion-cochias" underline="none">
+                                <Link href="/configuracion-cocinas" underline="none">
                                     <Paper style={{ padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
                                         <Typography variant="h6">Configuración cocinas</Typography>
                                     </Paper>

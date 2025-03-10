@@ -25,12 +25,32 @@ const getProducts = async () => {
     }
 };
 
+const getSecciones = async () => {
+    try {
+        const productosRef = collection(db, "seccciones");
+        const q = query(productosRef);
+        const querySnapshot = await getDocs(q);
+        const productsData = [];
+
+        querySnapshot.forEach((doc) => {
+            productsData.push({ id: doc.id, ...doc.data() });
+        });
+
+        return productsData;
+    } catch (error) {
+        console.error("Error obteniendo los productos: ", error);
+        return [];
+    }
+};
+
 function MenuAdmin() {
     const [products, setProducts] = useState([]);
+    const [secciones, setSecciones] = useState([]);
 
     useEffect(() => {
         console.log("Cargando productos al montar el componente...");
         loadProducts();
+        loadSeccion();
     }, []);
 
     const loadProducts = async () => {
@@ -39,6 +59,14 @@ function MenuAdmin() {
         console.log("Productos cargados:", productsData);
         setProducts(productsData);
     };
+
+    const loadSeccion = async () => {
+        console.log("Cargando productos...");
+        const productsData = await getSecciones();
+        console.log("Productos cargados:", productsData);
+        setSecciones(productsData);
+    };
+
 
     const handleDelete = async (productId, url) => {
         try {
@@ -83,6 +111,25 @@ function MenuAdmin() {
         }
     }
 
+    const mapaSecciones = new Map();
+    secciones.forEach((seccion) => {
+        mapaSecciones.set(seccion.id, seccion.posicion);
+    });
+
+    const platillosOrdenados = products.sort((a, b) => {
+        if (a.seccion === null) return 1;
+        if (b.seccion === null) return -1;
+
+        const posicionA = mapaSecciones.get(a.seccion.id);
+        const posicionB = mapaSecciones.get(b.seccion.id);
+
+        if (posicionA === posicionB) {
+            return a.nombre.localeCompare(b.nombre);
+        }
+
+        return posicionA - posicionB;
+    });
+
 
     return (
         <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
@@ -93,7 +140,7 @@ function MenuAdmin() {
                     <thead>
                         <tr>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Imagen</th>
-                            <th style={{ padding: '10px', textAlign: 'center' }}>Nombre</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}>Nombre y seccion</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Precio</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Descripción</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Ingredientes</th>
@@ -105,7 +152,7 @@ function MenuAdmin() {
                         </tr>
                     </thead>
                     <tbody>
-                        {products.map((product) => (
+                        {platillosOrdenados.map((product) => (
                             <tr key={product.id} style={{ borderBottom: '1px solid #ddd' }}>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>
                                     {product.url && (
@@ -116,7 +163,7 @@ function MenuAdmin() {
                                         />
                                     )}
                                 </td>
-                                <td style={{ padding: '10px', textAlign: 'center' }}>{product.nombre}</td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>{product.nombre} <br /> {product.seccion != null ?  "Seccion: " + product.seccion.nombre : "Sin seccion"}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>${product.precio}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>{product.descripcion}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>
