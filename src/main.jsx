@@ -23,6 +23,7 @@ import UsuariosAdmin from './Admin/ConfiguracionUsuarios/UsuariosAdmin';
 import MenuAdmin from './Admin/ConfiguracionMenu/MenuAdmin';
 import CreacionPlatilloMenu from './Admin/ConfiguracionMenu/CreacionPlatilloMenu';
 import EdicionMenuAdmin from './Admin/ConfiguracionMenu/EdicionMenuAdmin';
+import EdicionSeccionesAdmin from './Admin/ConfiguracionMenu/EdicionSeccionesAdmin';
 
 
 createRoot(document.getElementById('root')).render(
@@ -50,6 +51,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/menu_admin" element={ <MenuAdmin/> } />    
         <Route path="/crear_platillo" element={ <CreacionPlatilloMenu/> } />
         <Route path="/edicion_platillo/:id" element={ <EdicionMenuAdmin/> } />
+        <Route path="/edicion_secciones" element={ <EdicionSeccionesAdmin/> } />
 
         
         

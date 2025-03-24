@@ -16,10 +16,19 @@ function CreacionPlatilloMenu() {
   const [ingredientesSeleccionados, setIngredientesSeleccionados] = useState([]);
   const [extrasSeleccionados, setExtrasSeleccionados] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [secciones, setSecciones] = useState([]);
+  const [tiempo, setTiempo] = useState("");
+  const [prioridad, setPrioriad] = useState("");
+
+  const [seccionSeleccionada, setSeccionSeleccionada] = useState({
+    id: "",
+    nombre: "",
+  });
 
   useEffect(() => {
     ObtenerInventario();
     ObtenerMenu();
+    ObternerSecciones();
   }, []);
 
   const ObtenerMenu = async () => {
@@ -35,7 +44,24 @@ function CreacionPlatilloMenu() {
 
       setListaMenu(productsData);
     } catch (error) {
-      console.error("Error obteniendo los productos: ", error);
+      console.error("Error obteniendo el menu: ", error);
+    }
+  };
+
+  const ObternerSecciones = async () => {
+    try {
+      const productosRef = collection(db, "secciones");
+      const q = query(productosRef);
+      const querySnapshot = await getDocs(q);
+      const productsData = [];
+
+      querySnapshot.forEach((doc) => {
+        productsData.push({ id: doc.id, ...doc.data() });
+      });
+
+      setSecciones(productsData);
+    } catch (error) {
+      console.error("Error obteniendo las secciones: ", error);
     }
   };
 
@@ -50,7 +76,7 @@ function CreacionPlatilloMenu() {
       }));
       setListaIngredientes(productsData);
     } catch (error) {
-      console.error("Error obteniendo los productos: ", error);
+      console.error("Error obteniendo el inventario: ", error);
     }
   };
 
@@ -126,10 +152,35 @@ function CreacionPlatilloMenu() {
     );
   };
 
+  const handleSeccionChange = (event) => {
+    const idSeleccionado = event.target.value;
+
+    if (!idSeleccionado) {
+      setSeccionSeleccionada({ id: "", nombre: "" });
+      return;
+    }
+
+    const seccionElegida = secciones.find(
+      (seccion) => seccion.id === idSeleccionado
+    );
+
+    if (seccionElegida) {
+      setSeccionSeleccionada({
+        id: seccionElegida.id,
+        nombre: seccionElegida.nombre,
+      });
+    } else {
+      console.log("Error al cambiar la sección");
+    }
+
+    console.log(seccionSeleccionada)
+
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!nombre || !precio || !descripcion || ingredientesSeleccionados.length === 0) {
+    if (!nombre || !precio || !descripcion || ingredientesSeleccionados.length === 0 || !tiempo) {
       alert("Por favor, completa todos los campos y selecciona al menos un ingrediente.");
       return;
     }
@@ -137,6 +188,16 @@ function CreacionPlatilloMenu() {
     const cantidadInvalida = ingredientesSeleccionados.some((ing) => ing.cantidad < 1);
     if (cantidadInvalida) {
       alert("La cantidad de cada ingrediente debe ser mayor o igual a 1.");
+      return;
+    }
+
+    if(parseInt(tiempo) > 45){
+      alert("El tiempo no puede ser mayor 45");
+      return;
+    }
+
+    if(parseInt(tiempo) < 1){
+      alert("El tiempo no puede ser menor 1");
       return;
     }
 
@@ -164,18 +225,28 @@ function CreacionPlatilloMenu() {
         descripcion,
         url: downloadUrl,
         estatus: true,
+        tiempo: parseInt(tiempo),
+        prioridad: parseInt(prioridad),
         ingredientes: ingredientesSeleccionados.map((ing) => ({
           id: ing.id,
           nombre: ing.nombre,
           cantidad: ing.cantidad,
           unitario: ing.ingreso !== "KG",
         })),
-        extras: extrasSeleccionados.map((ext) => ({
-          id: ext.id,
-          nombre: ext.nombre,
-          costo: ext.costo,
-          extra: ext.extra,
-        })),
+        extras: extrasSeleccionados.length > 0
+          ? extrasSeleccionados.map((ext) => ({
+            id: ext.id,
+            nombre: ext.nombre,
+            costo: ext.costo,
+            extra: ext.extra,
+          }))
+          : null,
+        seccion: seccionSeleccionada.id
+          ? {
+            id: seccionSeleccionada.id,
+            nombre: seccionSeleccionada.nombre,
+          }
+          : null,
       };
 
       const docRef = await addDoc(collection(db, "menu"), platillo);
@@ -188,11 +259,13 @@ function CreacionPlatilloMenu() {
       setFile(null);
       setIngredientesSeleccionados([]);
       setExtrasSeleccionados([]);
+      setTiempo("");
     } catch (error) {
       console.error("Error al crear el platillo:", error);
       alert("Hubo un error al crear el platillo.");
     } finally {
       setIsSubmitting(false);
+      setSeccionSeleccionada({ id: "", nombre: "" }); // Reinicia la sección seleccionada
     }
   };
 
@@ -244,6 +317,34 @@ function CreacionPlatilloMenu() {
             />
           </div>
 
+          <label>Selecciona una sección</label> <br />
+          <select onChange={handleSeccionChange} value={seccionSeleccionada.id} style={{ marginBottom: "15px" }}>
+            <option value="">Sin seccion</option>
+            {secciones.map((seccion) => (
+              <option key={seccion.id} value={seccion.id}>
+                {seccion.nombre}
+              </option>
+            ))}
+          </select>
+
+          <div style={{ marginBottom: "15px" }}>
+            <label>Tiempo</label>
+            <input
+              type="number"
+              value={tiempo}
+              onChange={(e) => setTiempo(e.target.value)}
+              required
+              style={{ width: "100%", padding: "8px" }}
+            />
+          </div>
+
+          <label>Prioridad</label> <br />
+          <select onChange={(e) => setPrioriad(e.target.value)} value={prioridad} style={{ marginBottom: "15px" }}>
+            <option value="1">Prioridad alta</option>
+            <option value="2">Prioridad media</option>
+            <option value="3">Prioridad baja</option>
+          </select>
+
           <div style={{ marginBottom: "15px" }}>
             <label>Ingredientes:</label>
             {listaIngredientes.map((ingrediente) => (
@@ -289,8 +390,8 @@ function CreacionPlatilloMenu() {
                 </label>
                 {extrasSeleccionados.some((ext) => ext.id === platillo.id) && (
                   <>
-                  <br/>
-                  Costo
+                    <br />
+                    Costo
                     <input
                       type="number"
                       placeholder="Costo"

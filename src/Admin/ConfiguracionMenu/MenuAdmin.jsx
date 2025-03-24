@@ -68,27 +68,30 @@ function MenuAdmin() {
     };
 
 
-    const handleDelete = async (productId, url) => {
-        try {
-            if (url != urlImagenBlanco) {
-                const startIndex = url.indexOf("/o/") + 3;
-                const endIndex = url.indexOf("?alt=media");
-                const encodedFilePath = url.substring(startIndex, endIndex);
-                const filePath = decodeURIComponent(encodedFilePath);
-                const fileRef = ref(storage, filePath);
-                try {
-                    await deleteObject(fileRef);
-                    console.log("Archivo eliminado correctamente.");
-                } catch (error) {
-                    console.error("Error al eliminar el archivo:", error);
+    const handleDelete = async (productId, url, nom) => {
+        const usuarioConfirmo = window.confirm("Estas seguro que quieres eliminar el platillo " + nom);
+        if (usuarioConfirmo) {
+            try {
+                if (url != urlImagenBlanco) {
+                    const startIndex = url.indexOf("/o/") + 3;
+                    const endIndex = url.indexOf("?alt=media");
+                    const encodedFilePath = url.substring(startIndex, endIndex);
+                    const filePath = decodeURIComponent(encodedFilePath);
+                    const fileRef = ref(storage, filePath);
+                    try {
+                        await deleteObject(fileRef);
+                        console.log("Archivo eliminado correctamente.");
+                    } catch (error) {
+                        console.error("Error al eliminar el archivo:", error);
+                    }
                 }
+                await deleteDoc(doc(db, "menu", productId));
+                alert("Producto eliminado correctamente.");
+                loadProducts();
+            } catch (error) {
+                console.error("Error al eliminar el producto:", error);
+                alert("Hubo un error al eliminar el producto.");
             }
-            await deleteDoc(doc(db, "menu", productId));
-            alert("Producto eliminado correctamente.");
-            loadProducts();
-        } catch (error) {
-            console.error("Error al eliminar el producto:", error);
-            alert("Hubo un error al eliminar el producto.");
         }
     };
 
@@ -163,7 +166,7 @@ function MenuAdmin() {
                                         />
                                     )}
                                 </td>
-                                <td style={{ padding: '10px', textAlign: 'center' }}>{product.nombre} <br /> {product.seccion != null ?  "Seccion: " + product.seccion.nombre : "Sin seccion"}</td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>{product.nombre} <br /> {product.seccion != null ? "Seccion: " + product.seccion.nombre : "Sin seccion"}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>${product.precio}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>{product.descripcion}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>
@@ -215,7 +218,7 @@ function MenuAdmin() {
                                 <td style={{ textAlign: 'center' }}>
                                     <button
                                         disabled={product.baja}
-                                        onClick={() => handleDelete(product.id, product.url)}
+                                        onClick={() => handleDelete(product.id, product.url, product.nombre)}
                                         style={{
                                             backgroundColor: '#dc3545',
                                             color: 'white',

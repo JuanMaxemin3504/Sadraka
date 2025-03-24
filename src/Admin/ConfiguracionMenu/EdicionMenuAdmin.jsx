@@ -4,6 +4,7 @@ import { doc, getDoc, updateDoc, collection, query, getDocs } from "firebase/fir
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import NavBarMenuAdmin from "../NavBars/NavBarMenuAdmin";
 import { useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const urlImagenBlanco = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.appspot.com/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549";
 
@@ -18,11 +19,22 @@ function EdicionMenuAdmin() {
     const [ingredientesSeleccionados, setIngredientesSeleccionados] = useState([]);
     const [extrasSeleccionados, setExtrasSeleccionados] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [secciones, setSecciones] = useState([]);
+    const [tiempo, setTiempo] = useState("");
+    const [prioridad, setPrioriad] = useState("");
+
+    const [seccionSeleccionada, setSeccionSeleccionada] = useState({
+        id: "",
+        nombre: "",
+    });
+
+    const navigate = useNavigate(); // Inicializa useNavigate
 
     useEffect(() => {
         ObtenerInventario();
         CargarPlatillo();
         ObtenerMenu();
+        ObternerSecciones();
     }, [id]);
 
     const handleFileChange = (e) => {
@@ -31,22 +43,40 @@ function EdicionMenuAdmin() {
         }
     };
 
-      const ObtenerMenu = async () => {
+    const ObtenerMenu = async () => {
         try {
-          const productosRef = collection(db, "menu");
-          const q = query(productosRef);
-          const querySnapshot = await getDocs(q);
-          const productsData = [];
-    
-          querySnapshot.forEach((doc) => {
-            productsData.push({ id: doc.id, ...doc.data() });
-          });
-    
-          setListaMenu(productsData);
+            const productosRef = collection(db, "menu");
+            const q = query(productosRef);
+            const querySnapshot = await getDocs(q);
+            const productsData = [];
+
+            querySnapshot.forEach((doc) => {
+                productsData.push({ id: doc.id, ...doc.data() });
+            });
+
+            setListaMenu(productsData);
         } catch (error) {
-          console.error("Error obteniendo los productos: ", error);
+            console.error("Error obteniendo los productos: ", error);
         }
-      };
+    };
+
+
+    const ObternerSecciones = async () => {
+        try {
+            const productosRef = collection(db, "secciones");
+            const q = query(productosRef);
+            const querySnapshot = await getDocs(q);
+            const productsData = [];
+
+            querySnapshot.forEach((doc) => {
+                productsData.push({ id: doc.id, ...doc.data() });
+            });
+
+            setSecciones(productsData);
+        } catch (error) {
+            console.error("Error obteniendo las secciones: ", error);
+        }
+    };
 
     const handleCheckboxChange = (ingrediente) => {
         const existe = ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id);
@@ -114,6 +144,31 @@ function EdicionMenuAdmin() {
         );
     };
 
+    const handleSeccionChange = (event) => {
+        const idSeleccionado = event.target.value;
+
+        if (!idSeleccionado) {
+            setSeccionSeleccionada({ id: "", nombre: "" });
+            return;
+        }
+
+        const seccionElegida = secciones.find(
+            (seccion) => seccion.id === idSeleccionado
+        );
+
+        if (seccionElegida) {
+            setSeccionSeleccionada({
+                id: seccionElegida.id,
+                nombre: seccionElegida.nombre,
+            });
+        } else {
+            console.log("Error al cambiar la sección");
+        }
+
+        console.log(seccionSeleccionada)
+
+    };
+
     const CargarPlatillo = async () => {
         try {
             const platilloRef = doc(db, "menu", id);
@@ -125,6 +180,9 @@ function EdicionMenuAdmin() {
                 setDescripcion(platilloData.descripcion);
                 setIngredientesSeleccionados(platilloData.ingredientes);
                 setExtrasSeleccionados(platilloData.extras || []);
+                setPrioriad(platilloData.prioridad);
+                setTiempo(platilloData.tiempo);
+                setSecciones(platilloData.seccion);
             } else {
                 alert("Platillo no encontrado");
             }
@@ -156,6 +214,16 @@ function EdicionMenuAdmin() {
             return;
         }
 
+        if (parseInt(tiempo) > 45) {
+            alert("El tiempo no puede ser mayor 45");
+            return;
+        }
+
+        if (parseInt(tiempo) < 1) {
+            alert("El tiempo no puede ser menor 1");
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
@@ -175,11 +243,21 @@ function EdicionMenuAdmin() {
                 url: downloadUrl,
                 estatus: true,
                 ingredientes: ingredientesSeleccionados,
-                extras: extrasSeleccionados,
+                extras: extrasSeleccionados.length > 0
+                    ? extrasSeleccionados : null,
+                tiempo: parseInt(tiempo),
+                prioridad: parseInt(prioridad),
+                seccion: seccionSeleccionada.id
+                    ? {
+                        id: seccionSeleccionada.id,
+                        nombre: seccionSeleccionada.nombre,
+                    }
+                    : null,
             };
 
             await updateDoc(doc(db, "menu", id), platillo);
-            alert("Platillo actualizado correctamente.");
+            
+            navigate("/menu_admin");
         } catch (error) {
             console.error("Error al actualizar el platillo:", error);
             alert("Hubo un error al actualizar el platillo.");
@@ -235,6 +313,34 @@ function EdicionMenuAdmin() {
                             style={{ width: "100%", padding: "8px" }}
                         />
                     </div>
+
+                    <label>Selecciona una sección</label> <br />
+                    <select onChange={handleSeccionChange} value={seccionSeleccionada.id} style={{ marginBottom: "15px" }}>
+                        <option value="">Sin seccion</option>
+                        {secciones.map((seccion) => (
+                            <option key={seccion.id} value={seccion.id}>
+                                {seccion.nombre}
+                            </option>
+                        ))}
+                    </select>
+
+                    <div style={{ marginBottom: "15px" }}>
+                        <label>Tiempo</label>
+                        <input
+                            type="number"
+                            value={tiempo}
+                            onChange={(e) => setTiempo(e.target.value)}
+                            required
+                            style={{ width: "100%", padding: "8px" }}
+                        />
+                    </div>
+
+                    <label>Prioridad</label> <br />
+                    <select onChange={(e) => setPrioriad(e.target.value)} value={prioridad} style={{ marginBottom: "15px" }}>
+                        <option value="1">Prioridad alta</option>
+                        <option value="2">Prioridad media</option>
+                        <option value="3">Prioridad baja</option>
+                    </select>
 
                     <div style={{ marginBottom: "15px" }}>
                         <label>Ingredientes:</label>

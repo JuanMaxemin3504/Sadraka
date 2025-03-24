@@ -17,7 +17,7 @@ function NavBarMenuAdmin() {
                 {location.pathname === "/menu_admin" && (
                     <>
                         <Button color="inherit" component={Link} to="/crear_platillo"> Crear platillo </Button>
-                        <Button color="inherit" component={Link} to="/editar_secciones"> Editar Secciones </Button>
+                        <Button color="inherit" component={Link} to="/edicion_secciones"> Editar Secciones </Button>
                     </>
                 )}
                 
