@@ -7,13 +7,15 @@ import Login from './Login/LoginUsers';
 import AdminPaginaAdmin from './Admin/AdminPaginaPrincipal';
 import MeserosPaginaPrincipal from './Meseros/MeserosPaginaPrincipal';
 
-{ /* Imports Inventario y merma */}
+{ /* Imports Inventario */}
 import InventarioAdmin from './Admin/ConfiguracionInvetario/InvenarioAdmin';
 import EdicionInventarioAdmin from './Admin/ConfiguracionInvetario/EdicionInventarioAdmin';
 import AgregarInventarioAdmin from './Admin/ConfiguracionInvetario/AgregarInventarioAdmin';
 import AgregarProductoInventarioAdmin from './Admin/ConfiguracionInvetario/AgregarProductoInventarioAdmin';
+
+{ /* Imports Merma */}
 import PrincipalMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/PrincipalMermaAdmin';
-import EdicionMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/EdicionMermaAdmin';
+import ProcesosMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/ProcesosMermaAdmin';
 import AgregarMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/AgregarMermaAdmin';
 
 { /* Import Usuarios Admin */}
@@ -34,26 +36,25 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin" element={<AdminPaginaAdmin />} />
         <Route path="/mesero" element={<MeserosPaginaPrincipal />} />
 
-        { /* Rutas Inventario y merma */}
+        { /* Rutas Inventario */}
         <Route path="/inventario" element={<InventarioAdmin/>} />
         <Route path="/edicion_inventario/:id" element={<EdicionInventarioAdmin/>} />
         <Route path="/agregar_inventario/:id" element={<AgregarInventarioAdmin/>} />
         <Route path="/agregar_producto" element={<AgregarProductoInventarioAdmin/>} />
+
+        { /* Rutas merma */}
         <Route path="/merma" element={<PrincipalMermaAdmin/>} />
-        <Route path="/edicion_merma" element={<EdicionMermaAdmin/>} />
-        <Route path="/agregar_merma" element={<AgregarMermaAdmin/>} />
+        <Route path="/procesos_merma" element={<ProcesosMermaAdmin/>} />
+        <Route path="/agregar_merma" element={<AgregarMermaAdmin/> } />
 
         { /* Rutas Usuarios */}
         <Route path="/usuarios" element={ <UsuariosAdmin/> } />    
-
 
         { /* Rutas Menu */}
         <Route path="/menu_admin" element={ <MenuAdmin/> } />    
         <Route path="/crear_platillo" element={ <CreacionPlatilloMenu/> } />
         <Route path="/edicion_platillo/:id" element={ <EdicionMenuAdmin/> } />
-        <Route path="/edicion_secciones" element={ <EdicionSeccionesAdmin/> } />
-
-        
+        <Route path="/edicion_secciones" element={ <EdicionSeccionesAdmin/> } />        
         
         <Route path="/" element={<Navigate to="/login" />} />
 

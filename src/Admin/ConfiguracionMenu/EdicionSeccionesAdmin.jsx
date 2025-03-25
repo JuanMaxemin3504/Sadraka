@@ -7,7 +7,6 @@ function EdicionSeccionesAdmin() {
   const [secciones, setSecciones] = useState([]);
   const [editingSeccion, setEditingSeccion] = useState(null);
   const [nombreEditado, setNombreEditado] = useState("");
-  const [posicionEditada, setPosicionEditada] = useState(0);
   const [intercambio, setIntercambio] = useState({
     id: "",
     posicion: "",
@@ -38,7 +37,6 @@ function EdicionSeccionesAdmin() {
   const handleEditar = (seccion) => {
     setEditingSeccion(seccion.id);
     setNombreEditado(seccion.nombre);
-    setPosicionEditada(seccion.posicion);
   };
 
   const handleGuardarCambios = async (id) => {
@@ -46,7 +44,6 @@ function EdicionSeccionesAdmin() {
       const seccionRef = doc(db, "secciones", id);
       await updateDoc(seccionRef, {
         nombre: nombreEditado,
-        posicion: posicionEditada,
       });
 
       const platillosRef = collection(db, "menu");
@@ -62,7 +59,7 @@ function EdicionSeccionesAdmin() {
 
       const seccionesActualizadas = secciones.map((seccion) =>
         seccion.id === id
-          ? { ...seccion, nombre: nombreEditado, posicion: posicionEditada }
+          ? { ...seccion, nombre: nombreEditado }
           : seccion
       );
 
