@@ -186,7 +186,7 @@ function PrincipalMermaAdmin() {
                 <td style={{ textAlign: 'center' }}>
                   <button
                     onClick={() => {
-                      handleDelete(merma.id, merma.product);
+                      handleDelete(merma.id, merma.producto);
                       loadMerma();
                     }
                     }

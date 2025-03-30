@@ -5,7 +5,15 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './Login/LoginUsers';
 import AdminPaginaAdmin from './Admin/AdminPaginaPrincipal';
+
+{ /* Imports Meseros */}
 import MeserosPaginaPrincipal from './Meseros/MeserosPaginaPrincipal';
+
+{ /* Imports Cocina */}
+import CocinaPrincipal from './Cocina/CocinaPrincipal';
+
+{ /* Imports Mesa */}
+import MesasPrincipal from './Mesas/MesasPrincipal';
 
 { /* Imports Inventario */}
 import InventarioAdmin from './Admin/ConfiguracionInvetario/InvenarioAdmin';
@@ -54,8 +62,14 @@ createRoot(document.getElementById('root')).render(
         <Route path="/menu_admin" element={ <MenuAdmin/> } />    
         <Route path="/crear_platillo" element={ <CreacionPlatilloMenu/> } />
         <Route path="/edicion_platillo/:id" element={ <EdicionMenuAdmin/> } />
-        <Route path="/edicion_secciones" element={ <EdicionSeccionesAdmin/> } />        
+        <Route path="/edicion_secciones" element={ <EdicionSeccionesAdmin/> } />      
+
+        { /* Rutas Cocina */}  
+        <Route path="/cocina_principal" element={ <CocinaPrincipal/> } />      
         
+        { /* Rutas Mesas */}
+        <Route path="/mesas_principal" element={ <MesasPrincipal/> } />      
+
         <Route path="/" element={<Navigate to="/login" />} />
 
       </Routes>

@@ -19,17 +19,22 @@ function Login() {
     const onSubmit = async (event) => {
         event.preventDefault();
         const loginResult = await loginUser(username, password);
-
         if (loginResult) {
             setUsername('');
             setPassword('');
             console.log("Inicio de sesión exitoso:", loginResult);
             if(loginResult.isAdmin)
                 navigate('/admin');
-            else
-                navigate('/mesero')
+            else{
+                if(loginResult.tipo == 0)
+                    navigate('/mesero')
+                if(loginResult.tipo == 1)
+                    navigate('/cocina_principal')
+                if(loginResult.tipo == 2)
+                    navigate('/mesas_principal')
+            }
         } else {
-            console.log("Error en el inicio de sesión");
+            alert("Error en el inicio de sesión, Contraseña o usuario incorrectos");
         }
     };
 

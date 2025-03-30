@@ -160,8 +160,19 @@ function EdicionSeccionesAdmin() {
 
   const handleCrearSeccion = async () => {
     setBotonAgregar(true);
+    let numero = 1;
     try {
-      const nombre = "Seccion nueva"
+      const q = query(
+        collection(db, "secciones"),
+        where("nombre", ">=", "Seccion nueva"),
+        where("nombre", "<=", "Secion nuev" + "\uf8ff")
+      );
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((doc) => {
+        numero++;
+      });
+
+      const nombre = "Seccion nueva " + numero
       const posicion = secciones.length + 1
       const nuevaSeccion = {
         nombre,
@@ -173,7 +184,7 @@ function EdicionSeccionesAdmin() {
     } catch (error) {
       console.error("Error al crear la seccion.", error);
       alert("Hubo un error al crear la seccion.");
-    }finally{
+    } finally {
       setBotonAgregar(false);
     }
   }
@@ -294,9 +305,9 @@ function EdicionSeccionesAdmin() {
       </table>
       <button style={{ marginRight: "40%", marginLeft: "40%", cursor: botonAgregar ? "not-allowed" : "pointer" }}
         disabled={botonAgregar}
-        onClick={ async () => handleCrearSeccion()}>
-            {botonAgregar ? "Creando seccion" : "Crear seccion"}
-          </button>
+        onClick={async () => handleCrearSeccion()}>
+        {botonAgregar ? "Creando seccion" : "Crear seccion"}
+      </button>
     </div>
   );
 }

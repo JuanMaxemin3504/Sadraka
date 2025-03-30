@@ -14,7 +14,7 @@ import { deleteObject, ref } from "firebase/storage";
 function UsuariosAdmin() {
     return (
         <div>
-
+            Usuarios
         </div>
     )
 }

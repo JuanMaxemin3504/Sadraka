@@ -3,7 +3,6 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 
 export const loginUser = async (username, password) => {
   try {
-    // Busca el usuario por nombre de usuario
     const q = query(collection(db, "users"), where("username", "==", username));
     const querySnapshot = await getDocs(q);
 
@@ -21,7 +20,7 @@ export const loginUser = async (username, password) => {
     }
 
     console.log("Inicio de sesión exitoso");
-    return userData; // Devuelve los datos del usuario (incluyendo isAdmin)
+    return userData;
   } catch (error) {
     console.error("Error durante el inicio de sesión: ", error);
     return null;
