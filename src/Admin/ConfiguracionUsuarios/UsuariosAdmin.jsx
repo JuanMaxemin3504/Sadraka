@@ -291,7 +291,10 @@ function UsuariosAdmin() {
                             </td>
 
                             <td style={{ padding: '10px', textAlign: 'center' }}>{
-                                (user.tipo == 2 || user.tipo == 0) ? "Sin permisos extras" : "Con permisos"
+                                user.permisos == null ? "Sin permisos seleccionados" :
+                                    user.permisos.map((permiso) => (
+                                        <div key={permiso.id}> {permiso.nombre} </div>
+                                    ))
                             }
                             </td>
 
@@ -360,7 +363,7 @@ function UsuariosAdmin() {
                             </td>
 
                             <td style={{ textAlign: 'center' }}>
-                                <Link to={`/edicion_permisos/${user.id}`}>
+                                <Link to={ user.tipo == 1 ? `/edicion_cocinas/${user.id}` : `/edicion_permisos/${user.id}`}>
                                     <button
                                         disabled={user.tipo == 2 || user.tipo == 0}
                                         style={{
@@ -372,9 +375,9 @@ function UsuariosAdmin() {
                                             cursor: (user.isAdmin == true || user.tipo == 1) ? "pointer" : "not-allowed",
                                         }}
                                     >
-                                        {(user.isAdmin == true || user.tipo == 1) ? 
-                                        (user.isAdmin ? "Configurar permisos" : "Configurar divisiones de menu" )
-                                         : "No configurable"}
+                                        {(user.isAdmin == true || user.tipo == 1) ?
+                                            (user.isAdmin ? "Configurar permisos" : "Configurar divisiones de menu")
+                                            : "No configurable"}
                                     </button>
                                 </Link>
                             </td>

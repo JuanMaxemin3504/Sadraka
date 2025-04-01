@@ -1,44 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db } from "../../firebase";
+import { db } from "../../firebase"; // Asegúrate de que esta ruta es correcta
 import { doc, getDoc, collection, getDocs, query, updateDoc } from "firebase/firestore";
 import NavBarUsuarios from "../NavBars/NavBarUsuarios";
 
-function ConfigurarPermisos() {
-  const { id } = useParams();
+function ConfiguracionCocinas() {
+  const { id } = useParams(); // Obtiene el ID de la URL
   const navigate = useNavigate();
 
-  const listaPemisos = [{
-    nombre: "Menu",
-    id: 1
-  }, 
-  {
-    nombre: "Cocinas",
-    id: 2
-  }, 
-  {
-    nombre: "Promociones",
-    id: 3
-  }, 
-  {
-    nombre: "Reportes",
-    id: 4
-  }, 
-  {
-    nombre: "Inventario",
-    id: 5
-  }, 
-  {
-    nombre: "Usuarios",
-    id: 6
-  }
-
-]
-  const [PermisosSeleccionados, setPermisosSeleccionados] = useState([]);
+  const [listaPlatillos, setListaPlatillos] = useState([]);
+  const [platillosSeleccionados, setPlatillosSeleccionados] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    loadPlatillos();
     loadCocina();
   }, [id]);
 
@@ -49,7 +25,7 @@ function ConfigurarPermisos() {
 
       if (cocinaDoc.exists()) {
         const permisos = cocinaDoc.data().permisos || [];
-        setPermisosSeleccionados(permisos);
+        setPlatillosSeleccionados(permisos);
       } else {
         alert("Usuario cocina no encontrado");
       }
@@ -60,12 +36,25 @@ function ConfigurarPermisos() {
     }
   };
 
+  const loadPlatillos = async () => {
+    try {
+      const querySnapshot = await getDocs(query(collection(db, "menu")));
+      const platillosData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setListaPlatillos(platillosData);
+    } catch (error) {
+      console.error("Error al cargar los platillos:", error);
+    }
+  };
+
   const handleCheckboxChange = (platillo) => {
-    setPermisosSeleccionados(prev => {
+    setPlatillosSeleccionados(prev => {
       const existe = prev.some(p => p.id === platillo.id);
       return existe
         ? prev.filter(p => p.id !== platillo.id)
-        : [...prev, { id: platillo.id, nombre: platillo.nombre}];
+        : [...prev, { id: platillo.id, nombre: platillo.nombre, seccion: platillo.seccion }];
     });
   };
 
@@ -73,15 +62,15 @@ function ConfigurarPermisos() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if(PermisosSeleccionados.length < 1){
-      alert("Se debe elegir al menos 1 permiso para el administrador");
-      setIsSubmitting(false);
-      return;
+    if(platillosSeleccionados.length < 1){
+        alert("Se debe seleccionar por lo menos 1 platillo");
+        setIsSubmitting(false);
+        return;
     }
 
     try {
       await updateDoc(doc(db, "users", id), {
-        permisos: PermisosSeleccionados
+        permisos: platillosSeleccionados
       });
       navigate("/usuarios");
     } catch (error) {
@@ -101,16 +90,16 @@ function ConfigurarPermisos() {
       <h1>Configurar Permisos</h1>
         <form onSubmit={handleSubmit}>
           <h2>Platillos:</h2>
-          {listaPemisos.map((permiso) => (
-            <div key={permiso.id} style={{ marginBottom: "10px" }}>
+          {listaPlatillos.map((platillo) => (
+            <div key={platillo.id} style={{ marginBottom: "10px" }}>
               <label>
                 <input
                   type="checkbox"
-                  checked={PermisosSeleccionados.some(p => p.id === permiso.id)}
-                  onChange={() => handleCheckboxChange(permiso)}
+                  checked={platillosSeleccionados.some(p => p.id === platillo.id)}
+                  onChange={() => handleCheckboxChange(platillo)}
                   disabled={isSubmitting}
                 />
-                {permiso.nombre}
+                {platillo.nombre}
               </label>
             </div>
           ))}
@@ -134,4 +123,4 @@ function ConfigurarPermisos() {
   )
 }
 
-export default ConfigurarPermisos;
+export default ConfiguracionCocinas;
