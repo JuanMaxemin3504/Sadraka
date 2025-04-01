@@ -291,7 +291,8 @@ function UsuariosAdmin() {
                             </td>
 
                             <td style={{ padding: '10px', textAlign: 'center' }}>{
-                                user.permisos == null ? "Sin permisos seleccionados" :
+                                user.permisos == null ? ( (user.tipo == 1 || user.isAdmin )? "Sin permisos asignados" :
+                                    (user.tipo == 0 ? "Permisos de mesero" : "Permisos de mesa")) :
                                     user.permisos.map((permiso) => (
                                         <div key={permiso.id}> {permiso.nombre} </div>
                                     ))
