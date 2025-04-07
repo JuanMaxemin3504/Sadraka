@@ -10,7 +10,6 @@ import AdminPaginaAdmin from './Admin/AdminPaginaPrincipal';
 import MeserosPaginaPrincipal from './Meseros/MeserosPaginaPrincipal';
 
 { /* Imports Cocina */}
-import CocinaPrincipal from './Cocina/CocinaPrincipal';
 
 { /* Imports Mesa */}
 import MesasPrincipal from './Mesas/MesasPrincipal';
@@ -69,7 +68,6 @@ createRoot(document.getElementById('root')).render(
         <Route path="/edicion_secciones" element={ <EdicionSeccionesAdmin/> } />      
 
         { /* Rutas Cocina */}  
-        <Route path="/cocina_principal" element={ <CocinaPrincipal/> } />      
         
         { /* Rutas Mesas */}
         <Route path="/mesas_principal" element={ <MesasPrincipal/> } />      

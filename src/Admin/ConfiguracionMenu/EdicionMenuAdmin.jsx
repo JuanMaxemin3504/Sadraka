@@ -6,7 +6,7 @@ import NavBarMenuAdmin from "../NavBars/NavBarMenuAdmin";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
-const urlImagenBlanco = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.appspot.com/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549";
+const urlImagenBlanco = "https://whatcolor.net/wp-content/uploads/2022/04/Significado-del-color-blanco.png";
 
 function EdicionMenuAdmin() {
     const { id } = useParams();

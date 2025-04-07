@@ -5,7 +5,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import NavBarInventario from '../NavBars/NavBarInventario';
 
-const urlImagenBlanco = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.firebasestorage.app/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549";
+const urlImagenBlanco = "https://tse3.mm.bing.net/th/id/OIP.0nEFZ6umUtwq2FJce32emgHaE8?rs=1&pid=ImgDetMain";
 
 let url = "";
 

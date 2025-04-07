@@ -4,7 +4,7 @@ import { collection, query, getDocs, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import NavBarMenuAdmin from "../NavBars/NavBarMenuAdmin";
 
-const urlImagenBlanco = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.firebasestorage.app/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549";
+const urlImagenBlanco = "https://whatcolor.net/wp-content/uploads/2022/04/Significado-del-color-blanco.png";
 
 function CreacionPlatilloMenu() {
   const [nombre, setNombre] = useState("");

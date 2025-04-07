@@ -42,13 +42,6 @@ function AdminPaginaPrincipal() {
                                 </Link>
                             </Grid>
                             <Grid item xs={4}>
-                                <Link href="/configuracion-cocinas" underline="none">
-                                    <Paper style={{ padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
-                                        <Typography variant="h6">Configuración cocinas</Typography>
-                                    </Paper>
-                                </Link>
-                            </Grid>
-                            <Grid item xs={4}>
                                 <Link href="/promociones" underline="none">
                                     <Paper style={{ padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
                                         <Typography variant="h6">Promociones</Typography>

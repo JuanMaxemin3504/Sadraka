@@ -82,7 +82,7 @@ function AgregarProductoInventarioAdmin() {
         await uploadBytes(storageRef, file);
         downloadUrl = await getDownloadURL(storageRef);
       } else {
-        downloadUrl = "https://firebasestorage.googleapis.com/v0/b/restaurante-fbf21.firebasestorage.app/o/productos%2Ffondo%20blanco.jpeg?alt=media&token=de3a3e6f-110c-4612-b992-3b221a813549";
+        downloadUrl = "https://tse3.mm.bing.net/th/id/OIP.0nEFZ6umUtwq2FJce32emgHaE8?rs=1&pid=ImgDetMain";
       }
 
       const docRef = await addDoc(collection(db, "products"), {
@@ -93,7 +93,7 @@ function AgregarProductoInventarioAdmin() {
         url: downloadUrl,
         estatus: true,
         baja: false,
-        cantidad_paquete: ingreso === "Paquetes" ? parseInt(cantidadPaquete) : null, // Guardar cantidad_paquete solo si el tipo de ingreso es "Paquetes"
+        cantidad_paquete: ingreso === "Paquetes" ? parseInt(cantidadPaquete) : null,
       });
 
       console.log("Producto guardado con ID:", docRef.id);
@@ -104,7 +104,7 @@ function AgregarProductoInventarioAdmin() {
       setCosto("");
       setIngreso("KG");
       setFile(null);
-      setCantidadPaquete(""); // Limpiar el campo de cantidad unitaria por paquete
+      setCantidadPaquete("");
     } catch (error) {
       console.error("Error al guardar el producto:", error);
       alert("Hubo un error al guardar el producto.");
