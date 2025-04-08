@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { db } from "../../firebase";
 import { doc, getDoc, addDoc, collection, getDocs, query, updateDoc } from "firebase/firestore";
 import NavBarAdminPromos from "../NavBars/NavBarAdminPromos";
 
-const EditarPromocionesAdmin = () => {
-    const navigate = useNavigate();
-    const { id } = useParams();
+const CrearPromocionesAdmin = () => {
+const navigate = useNavigate();
 
     const [listaPlatillos, setListaPlatillos] = useState([]);
     const [platillosSeleccionados, setPlatillosSeleccionados] = useState([]);
@@ -30,7 +29,7 @@ const EditarPromocionesAdmin = () => {
 
     useEffect(() => {
         loadPlatillos();
-    }, [id]);
+    }, []);
 
     const loadPlatillos = async () => {
         try {
@@ -309,13 +308,13 @@ const EditarPromocionesAdmin = () => {
                         disabled={isSubmitting}
                     /><br />
 
-                    <label>Descripción:</label><br />
+                    <label>Descripción:</label><br/>
                     <textarea
                         value={descripcion}
                         onChange={(e) => setDescripcion(e.target.value)}
                         required
                         style={{ width: "100%", padding: "8px" }}
-                    /><br />
+                    /><br/>
 
 
                     <button
@@ -340,4 +339,4 @@ const EditarPromocionesAdmin = () => {
     )
 }
 
-export default EditarPromocionesAdmin;
+export default CrearPromocionesAdmin;

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db } from "../../firebase"; // Asegúrate de que esta ruta es correcta
+import { db } from "../../firebase";
 import { doc, getDoc, collection, getDocs, query, updateDoc } from "firebase/firestore";
 import NavBarUsuarios from "../NavBars/NavBarUsuarios";
 
 function ConfiguracionCocinas() {
-  const { id } = useParams(); // Obtiene el ID de la URL
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [listaPlatillos, setListaPlatillos] = useState([]);
@@ -86,7 +86,7 @@ function ConfiguracionCocinas() {
   return (
     <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
       <NavBarUsuarios />
-      <div style={{ marginBottom: "15px", textAlign: "center" }}>
+      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', margin: '20px 0' }}>
       <h1>Configurar Permisos</h1>
         <form onSubmit={handleSubmit}>
           <h2>Platillos:</h2>

@@ -36,6 +36,10 @@ import CreacionPlatilloMenu from './Admin/ConfiguracionMenu/CreacionPlatilloMenu
 import EdicionMenuAdmin from './Admin/ConfiguracionMenu/EdicionMenuAdmin';
 import EdicionSeccionesAdmin from './Admin/ConfiguracionMenu/EdicionSeccionesAdmin';
 
+{ /* Import Promociones Admin */}
+import PromocionesAdmin from './Admin/ConfiguracionPromociones/PromocionesAdmin';
+import CrearPromocionesAdmin from './Admin/ConfiguracionPromociones/CrearPromocionesAdmin';
+
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -67,7 +71,11 @@ createRoot(document.getElementById('root')).render(
         <Route path="/edicion_platillo/:id" element={ <EdicionMenuAdmin/> } />
         <Route path="/edicion_secciones" element={ <EdicionSeccionesAdmin/> } />      
 
-        { /* Rutas Cocina */}  
+        { /* Rutas Cocina */} 
+
+        { /* Rutas Promociones */}  
+        <Route path="/promociones_admin" element={ <PromocionesAdmin/> } />      
+        <Route path="/crear_promociones_admin" element={ <CrearPromocionesAdmin/> } />      
         
         { /* Rutas Mesas */}
         <Route path="/mesas_principal" element={ <MesasPrincipal/> } />      
