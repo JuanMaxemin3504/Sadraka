@@ -305,6 +305,7 @@ const navigate = useNavigate();
                         type="text"
                         value={nombrePromo}
                         onChange={(e) => setNombrePromo(e.target.value)}
+                        required
                         disabled={isSubmitting}
                     /><br />
 

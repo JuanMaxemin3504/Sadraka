@@ -44,7 +44,6 @@ function AgregarInventarioAdmin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validar la cantidad
     if (isNaN(cantidad)) {
       alert("La cantidad debe ser un número válido.");
       return;
@@ -53,7 +52,27 @@ function AgregarInventarioAdmin() {
       alert("La cantidad debe ser mayor a 0.");
       return;
     }
-
+    
+    if (ingreso != "KG") {
+      try{
+        validacion = parseInt(cantidad);
+      }catch{
+        alert("La cantidad no debe tener decimales");
+        return;
+      }
+    }
+    if (ingreso == "KG") {
+      if(cantidad <= 0)
+      {
+        alert("La cantidad no debe ser menor 0");
+        return;
+      }
+      if(cantidad > 100)
+      {
+        alert("La cantidad no debe ser mayor 100");
+        return;
+      }
+    }
     setIsSubmitting(true);
 
     try {
@@ -62,7 +81,6 @@ function AgregarInventarioAdmin() {
         // Si el producto es por paquetes, multiplicar la cantidad por la cantidad unitaria por paquete
         nuevoInventario = inventario + (parseFloat(cantidad) * parseFloat(paquetes));
       } else {
-        // Si no es por paquetes, sumar directamente la cantidad
         nuevoInventario = parseFloat(inventario) + parseFloat(cantidad);
       }
 

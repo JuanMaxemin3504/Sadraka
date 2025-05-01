@@ -210,7 +210,7 @@ function InvenarioAdmin() {
                       cursor: product.baja ? "not-allowed" : "pointer",
                     }}
                   >
-                    {product.baja === true ? "Suspendido" : product.estatus === true ? "Activo" : "Inactivo"}
+                    {product.baja === true ? "Suspendido" : product.estatus === true ? "Activo" : "Baja"}
                   </button>
                 </td>
 
@@ -226,7 +226,7 @@ function InvenarioAdmin() {
                       cursor: 'pointer',
                     }}
                   >
-                    {product.baja == false ? "No" : "Si"}
+                    {product.baja == false ? "Alta" : "Baja"}
                   </button>
                 </td>
               </tr>

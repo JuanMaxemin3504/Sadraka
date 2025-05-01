@@ -37,7 +37,7 @@ function AdminPaginaPrincipal() {
                             <Grid item xs={4}>
                                 <Link href="/menu_admin" underline="none">
                                     <Paper style={{ padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
-                                        <Typography variant="h6">Configuración Menu</Typography>
+                                        <Typography variant="h6">Configuración carta</Typography>
                                     </Paper>
                                 </Link>
                             </Grid>

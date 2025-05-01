@@ -391,7 +391,17 @@ function CreacionPlatilloMenu() {
                 {extrasSeleccionados.some((ext) => ext.id === platillo.id) && (
                   <>
                     <br />
+                    <select
+                      value={extrasSeleccionados.find((ext) => ext.id === platillo.id)?.extra ? "true" : "false"}
+                      onChange={(e) => handleExtraChange(platillo.id, e.target.value)}
+                      required
+                      style={{ width: "100%", padding: "8px" }}
+                    >
+                      <option value="true">Extra</option>
+                      <option value="false">Complemento</option>
+                    </select>
                     Costo
+                    {/* Mostrar el costo solo si extra */}
                     <input
                       type="number"
                       placeholder="Costo"
@@ -403,16 +413,6 @@ function CreacionPlatilloMenu() {
                       required
                       style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
                     />
-                    El platillo es un extra?
-                    <select
-                      value={extrasSeleccionados.find((ext) => ext.id === platillo.id)?.extra ? "true" : "false"}
-                      onChange={(e) => handleExtraChange(platillo.id, e.target.value)}
-                      required
-                      style={{ width: "100%", padding: "8px" }}
-                    >
-                      <option value="true">Sí</option>
-                      <option value="false">No</option>
-                    </select>
                   </>
                 )}
               </div>

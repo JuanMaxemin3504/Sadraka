@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { db } from "../../firebase";
-import { doc, getDoc, addDoc, collection, getDocs, query, updateDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, updateDoc } from "firebase/firestore";
 import NavBarAdminPromos from "../NavBars/NavBarAdminPromos";
 
-const EditarPromocionesAdmin = () => {
+const EdicionPromocionesAdmin = () => {
     const navigate = useNavigate();
-    const { id } = useParams();
+    const { id } = useParams(); // Obtenemos el ID de la promoción a editar
 
     const [listaPlatillos, setListaPlatillos] = useState([]);
     const [platillosSeleccionados, setPlatillosSeleccionados] = useState([]);
@@ -27,9 +27,14 @@ const EditarPromocionesAdmin = () => {
     const [precioPaquete, setPrecioPaquete] = useState("");
     const [descripcion, setDescripcion] = useState("");
     const [nombrePromo, setNombrePromo] = useState("");
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadPlatillos();
+        const cargarDatos = async () => {
+            await loadPlatillos();
+            await loadPromocion();
+        };
+        cargarDatos();
     }, [id]);
 
     const loadPlatillos = async () => {
@@ -42,6 +47,53 @@ const EditarPromocionesAdmin = () => {
             setListaPlatillos(platillosData);
         } catch (error) {
             console.error("Error al cargar los platillos:", error);
+        }
+    };
+
+    const loadPromocion = async () => {
+        try {
+            const promocionRef = doc(db, "promociones", id);
+            const promocionDoc = await getDoc(promocionRef);
+            
+            if (!promocionDoc.exists()) {
+                alert("Promoción no encontrada");
+                navigate("/promociones_admin");
+                return;
+            }
+
+            const promocionData = promocionDoc.data();
+            
+            // Establecer los valores de la promoción existente
+            setNombrePromo(promocionData.nombre || "");
+            setDescripcion(promocionData.descripcion || "");
+            setPlatillosSeleccionados(promocionData.platillos || []);
+            setTipoPromocion(promocionData.tipo || 0);
+            setPromocionSemanal(promocionData.esSemanal || true);
+            
+            if (promocionData.esSemanal) {
+                setDiasSemana(promocionData.dias || {
+                    lunes: false,
+                    martes: false,
+                    miercoles: false,
+                    jueves: false,
+                    viernes: false,
+                    sabado: false,
+                    domingo: false
+                });
+            } else {
+                setFechaInicio(promocionData.fechaInicio || "");
+                setFechaFin(promocionData.fechaFin || "");
+            }
+            
+            if (promocionData.tipo === 2) {
+                setPrecioPaquete(promocionData.precio?.toString() || "");
+            }
+            
+        } catch (error) {
+            console.error("Error al cargar la promoción:", error);
+            alert("Error al cargar la promoción");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -64,7 +116,6 @@ const EditarPromocionesAdmin = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
-
 
         if (platillosSeleccionados.length < 1) {
             alert("Se debe seleccionar por lo menos 1 platillo");
@@ -106,25 +157,37 @@ const EditarPromocionesAdmin = () => {
                 tipo: tipoPromocion,
                 esSemanal: promocionSemanal,
                 ...(promocionSemanal ? { dias: diasSemana } : { fechaInicio, fechaFin }),
-                ...(tipoPromocion === 2 && { precio: parseFloat(precioPaquete) })
+                ...(tipoPromocion === 2 && { precio: parseFloat(precioPaquete) }),
+                fechaActualizacion: new Date() // Agregamos fecha de actualización
             };
 
-            await addDoc(collection(db, "promociones"), promocionData);
-            alert("Promoción guardada exitosamente");
+            await updateDoc(doc(db, "promociones", id), promocionData);
+            alert("Promoción actualizada exitosamente");
             navigate("/promociones_admin");
         } catch (error) {
-            console.error("Error al guardar la promoción:", error);
-            alert("Hubo un error al guardar la promoción.");
+            console.error("Error al actualizar la promoción:", error);
+            alert("Hubo un error al actualizar la promoción.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    if (loading) {
+        return (
+            <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
+                <NavBarAdminPromos />
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                    <p>Cargando promoción...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
             <NavBarAdminPromos />
             <div style={{ marginBottom: "15px", textAlign: "center" }}>
-                <h1>Configurar promoción o paquete</h1>
+                <h1>Editar promoción o paquete</h1>
                 <div style={{ width: '100vw', textAlign: "center", justifyContent: "center" }}>
                     <table>
                         <thead>
@@ -301,22 +364,22 @@ const EditarPromocionesAdmin = () => {
                         ))}
                     </div>
 
-                    <label>Nombre de la promocion</label><br />
+                    <label>Nombre de la promoción:</label><br />
                     <input
                         type="text"
                         value={nombrePromo}
                         onChange={(e) => setNombrePromo(e.target.value)}
                         disabled={isSubmitting}
+                        style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
                     /><br />
 
-                    <label>Descripción:</label><br />
+                    <label>Descripción:</label><br/>
                     <textarea
                         value={descripcion}
                         onChange={(e) => setDescripcion(e.target.value)}
                         required
-                        style={{ width: "100%", padding: "8px" }}
-                    /><br />
-
+                        style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
+                    /><br/>
 
                     <button
                         type="submit"
@@ -332,7 +395,7 @@ const EditarPromocionesAdmin = () => {
                             marginBottom: "20px"
                         }}
                     >
-                        {isSubmitting ? "Guardando..." : "Guardar Promoción"}
+                        {isSubmitting ? "Actualizando..." : "Actualizar Promoción"}
                     </button>
                 </form>
             </div>
@@ -340,4 +403,4 @@ const EditarPromocionesAdmin = () => {
     )
 }
 
-export default EditarPromocionesAdmin;
+export default EdicionPromocionesAdmin;

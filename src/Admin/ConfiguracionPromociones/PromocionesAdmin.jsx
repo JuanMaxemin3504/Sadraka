@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { db } from "../../firebase";
-import { doc, getDoc, addDoc, collection, getDocs, query, updateDoc } from "firebase/firestore";
+import { doc, getDoc, addDoc, collection, getDocs, query, deleteDoc } from "firebase/firestore";
 import NavBarAdminPromos from "../NavBars/NavBarAdminPromos";
+
 
 const PromocionesAdmin = () => {
     const navigate = useNavigate();
@@ -26,12 +27,30 @@ const PromocionesAdmin = () => {
         }
     };
 
+    const handleDelete = async (id, nom) => {
+        try {
+            const usuarioConfirmo = window.confirm("Estas seguro que quieres eliminar la promocion " + nom);
+            if (usuarioConfirmo) {
+                try {
+                    await deleteDoc(doc(db, "promociones", id));
+                    loadPromociones();
+                } catch (error) {
+                    console.error("Error al eliminar la promocion:", error);
+                    alert("Hubo un error al eliminar la promocion.");
+                }
+            }
+        } catch (error) {
+            console.error("Error al eliminar la promocion:", error);
+            alert("Hubo un error al eliminar la promocion.");
+        }
+    }
+
     return (
         <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
             <NavBarAdminPromos />
             <div style={{ marginBottom: "15px", textAlign: "center" }}>
                 <h1>Promociones</h1>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', justifyContent: 'center' }}>
                     <thead>
                         <tr>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Nombre</th>
@@ -48,13 +67,13 @@ const PromocionesAdmin = () => {
                             <tr key={promo.id} style={{ borderBottom: '1px solid #ddd' }}>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>{promo.nombre}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>{promo.descripcion}</td>
-                                <td style={{ padding: '10px', textAlign: 'center' }}>{promo.tipo == 0 ? "3x2" : 
-                                (promo.tipo == 1 ? "2x1" : "$" + promo.precio)}</td>
-                                <td style={{ padding: '10px', textAlign: 'center' }}>{promo.tipo == 0 ? "3x2" : 
-                                (promo.tipo == 1 ? "2x1" : "Combo / paquete")} </td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>{promo.tipo == 0 ? "3x2" :
+                                    (promo.tipo == 1 ? "2x1" : "$" + promo.precio)}</td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>{promo.tipo == 0 ? "3x2" :
+                                    (promo.tipo == 1 ? "2x1" : "Combo / paquete")} </td>
 
-                                {/* <td style={{ textAlign: 'center' }}>
-                                    <Link to={`/edicion_inventario/${promo.id}`}>
+                                <td style={{ textAlign: 'center' }}>
+                                    <Link to={`/editar_promociones_admin/${promo.id}`}>
                                         <button
                                             disabled={promo.baja}
                                             style={{
@@ -75,7 +94,7 @@ const PromocionesAdmin = () => {
                                 <td style={{ textAlign: 'center' }}>
                                     <button
                                         disabled={promo.baja}
-                                        onClick={() => handleDelete(promo.id, promo.url, promo.nombre)}
+                                        onClick={() => handleDelete(promo.id, promo.nombre)}
                                         style={{
                                             backgroundColor: '#dc3545',
                                             color: 'white',
@@ -89,27 +108,6 @@ const PromocionesAdmin = () => {
                                         Eliminar
                                     </button>
                                 </td>
-
-                                <td style={{ textAlign: 'center' }}>
-                                    <Link to={`/agregar_inventario/${promo.id}`}>
-                                        <button
-                                            disabled={promo.baja}
-                                            style={{
-                                                backgroundColor: '#007bff',
-                                                color: 'white',
-                                                border: 'none',
-                                                padding: '5px 10px',
-                                                borderRadius: '5px',
-                                                cursor: promo.baja ? "not-allowed" : "pointer",
-                                            }}
-                                        >
-                                            Agregar inventario
-                                        </button>
-                                    </Link>
-                                </td> */}
-
-
-                                
                             </tr>
                         ))}
                     </tbody>

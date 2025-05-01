@@ -22,9 +22,13 @@ function AgregarProductoInventarioAdmin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!nombre || !cantidad || !costo) {
+    if (!nombre || !costo) {
       alert("Por favor, completa todos los campos y selecciona una imagen.");
       return;
+    }
+
+    if (!cantidad) {
+      setCantidad(0);
     }
 
     if (file && !file.type.startsWith("image/")) {
@@ -37,29 +41,9 @@ function AgregarProductoInventarioAdmin() {
         alert("La cantidad debe ser un número válido.");
         return;
       }
-      if (cantidad > 100) {
-        alert("La cantidad máxima de ingreso es de 100KG");
-        return;
-      }
-      if (cantidad < 1) {
-        alert("La cantidad mínima de ingreso es de 1KG");
-        return;
-      }
     } else if (ingreso === "Paquetes") {
       if (!Number.isInteger(parseFloat(cantidad))) {
         alert("La cantidad debe ser un número entero.");
-        return;
-      }
-      if (parseInt(cantidad) < 1) {
-        alert("La cantidad debe ser mayor a 1.");
-        return;
-      }
-      if (!cantidadPaquete || !Number.isInteger(parseFloat(cantidadPaquete))) {
-        alert("La cantidad unitaria por paquete debe ser un número entero.");
-        return;
-      }
-      if (parseInt(cantidadPaquete) <= 0) {
-        alert("La cantidad unitaria por paquete debe ser mayor a 0.");
         return;
       }
     } else {
@@ -137,7 +121,6 @@ function AgregarProductoInventarioAdmin() {
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
               step={ingreso === "KG" ? "0.01" : "1"}
-              required
               style={{ width: "100%", padding: "8px" }}
             />
           </div>
