@@ -71,22 +71,37 @@ function CocinaPrincipal() {
 
   const marcarPlatilloCompletado = async (pedidoId, platilloIndex) => {
     try {
+      // 1. Obtener el pedido actual
       const pedidoRef = doc(db, "ordenes", pedidoId);
-      const nuevosPedidos = [...pedidos];
-      const pedidoIndex = nuevosPedidos.findIndex(p => p.id === pedidoId);
-
-      if (pedidoIndex !== -1) {
-        nuevosPedidos[pedidoIndex].platillos[platilloIndex].completado = true;
-
-        await updateDoc(pedidoRef, {
-          platillos: nuevosPedidos[pedidoIndex].platillos
-        });
-
-        setPedidos(nuevosPedidos);
-        verificarCompletadoTotal(pedidoId);
-        const permisos = await cargarPermisos();
-        cargarPedidos(permisos);
-      }
+      const pedidoDoc = await getDoc(pedidoRef);
+      const pedidoActual = pedidoDoc.data();
+      
+      // 2. Crear copia actualizada de los platillos
+      const platillosActualizados = [...pedidoActual.platillos];
+      platillosActualizados[platilloIndex] = {
+        ...platillosActualizados[platilloIndex],
+        completado: true
+      };
+      
+      // 3. Actualizar Firestore con el array completo
+      await updateDoc(pedidoRef, {
+        platillos: platillosActualizados
+      });
+      
+      // 4. Actualizar el estado local
+      setPedidos(prev => prev.map(pedido => {
+        if (pedido.id === pedidoId) {
+          return {
+            ...pedido,
+            platillos: platillosActualizados
+          };
+        }
+        return pedido;
+      }));
+      
+      // 5. Verificar si todos están completados
+      await verificarCompletadoTotal(pedidoId);
+      
     } catch (err) {
       console.error("Error actualizando platillo:", err);
       alert("Error al marcar el platillo como completado");
