@@ -53,13 +53,12 @@ function CreacionPlatilloMenu() {
       const productosRef = collection(db, "secciones");
       const q = query(productosRef);
       const querySnapshot = await getDocs(q);
-      const productsData = [];
 
-      querySnapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() });
-      });
+      const seccionesFiltradas = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(seccion => seccion.posicion !== 0);
 
-      setSecciones(productsData);
+      setSecciones(seccionesFiltradas);
     } catch (error) {
       console.error("Error obteniendo las secciones: ", error);
     }
@@ -246,7 +245,10 @@ function CreacionPlatilloMenu() {
             id: seccionSeleccionada.id,
             nombre: seccionSeleccionada.nombre,
           }
-          : null,
+          : {
+            id: "hkw1cc4AbTex3jEQlFBR",
+            nombre: "Seccion Base",
+          },
       };
 
       const docRef = await addDoc(collection(db, "menu"), platillo);

@@ -252,7 +252,10 @@ function EdicionMenuAdmin() {
                         id: seccionSeleccionada.id,
                         nombre: seccionSeleccionada.nombre,
                     }
-                    : null,
+                    : {
+                        id: "hkw1cc4AbTex3jEQlFBR",
+                        nombre: "Seccion Base",
+                      },
             };
 
             await updateDoc(doc(db, "menu", id), platillo);

@@ -14,21 +14,20 @@ function EdicionSeccionesAdmin() {
   const [botonAgregar, setBotonAgregar] = useState(false);
 
   useEffect(() => {
-    ObternerSecciones();
+    ObtenerSecciones();
   }, []);
 
-  const ObternerSecciones = async () => {
+  const ObtenerSecciones = async () => {
     try {
       const productosRef = collection(db, "secciones");
-      const q = query(productosRef, orderBy("posicion", "asc")); // Ordenar por posición
+      const q = query(productosRef, orderBy("posicion", "asc"));
       const querySnapshot = await getDocs(q);
-      const productsData = [];
-
-      querySnapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() });
-      });
-
-      setSecciones(productsData);
+      
+      const seccionesFiltradas = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(seccion => seccion.posicion !== 0);
+  
+      setSecciones(seccionesFiltradas);
     } catch (error) {
       console.error("Error obteniendo las secciones: ", error);
     }
@@ -150,7 +149,7 @@ function EdicionSeccionesAdmin() {
           });
           pos = pos + 1;
         }
-        ObternerSecciones();
+        ObtenerSecciones();
       } catch (error) {
         console.error("Error al actualizar posiciones:", error);
         alert("Hubo un error al actualizar posiciones.");
@@ -180,7 +179,7 @@ function EdicionSeccionesAdmin() {
       };
       const docRef = await addDoc(collection(db, "secciones"), nuevaSeccion);
       console.log("Nueva seccion creada con ID:", docRef.id);
-      ObternerSecciones();
+      ObtenerSecciones();
     } catch (error) {
       console.error("Error al crear la seccion.", error);
       alert("Hubo un error al crear la seccion.");

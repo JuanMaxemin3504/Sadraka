@@ -10,6 +10,7 @@ import AdminPaginaAdmin from './Admin/AdminPaginaPrincipal';
 import MeserosPaginaPrincipal from './Meseros/MenuMesero';
 
 { /* Imports Cocina */}
+import CocinaPrincipal from './Cocina/CocinasPrincipal';
 
 { /* Imports Mesa */}
 import MesasPrincipal from './Mesas/MesasPrincipal';
@@ -43,8 +44,9 @@ import EdicionPromocionesAdmin from './Admin/ConfiguracionPromociones/EdicionPro
 
 { /* Import Mesero */}
 import MenuMesero from './Meseros/MenuMesero';
-import CuentaMesas from './Mesas/CuentaMesas';
+import EdicionPedidosMesero from './Meseros/EdicionPedidosMesero';
 
+import CuentaMesas from './Mesas/CuentaMesas';
 
 
 createRoot(document.getElementById('root')).render(
@@ -78,6 +80,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/edicion_secciones" element={ <EdicionSeccionesAdmin/> } />      
 
         { /* Rutas Cocina */} 
+        <Route path="/cocina_principal/:idCocina" element={ <CocinaPrincipal/> } />      
 
         { /* Rutas Promociones */}  
         <Route path="/promociones_admin" element={ <PromocionesAdmin/> } />      
@@ -86,10 +89,11 @@ createRoot(document.getElementById('root')).render(
         
         { /* Rutas Mesas */}
         <Route path="/mesas_principal" element={ <MesasPrincipal/> } />
+        <Route path="/cuenta_mesas" element={ <CuentaMesas/> } />
 
         { /* Rutas Mesero */}
         <Route path="/menu_mesero" element={ <MenuMesero/> } />      
-        <Route path="/cuenta_mesas" element={ <CuentaMesas/> } />
+        <Route path="/editar_pedidos_mesero/" element={ <EdicionPedidosMesero/> } />      
 
         <Route path="/" element={<Navigate to="/login" />} />
 

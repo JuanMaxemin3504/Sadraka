@@ -22,14 +22,13 @@ function Login() {
         if (loginResult) {
             setUsername('');
             setPassword('');
-            console.log("Inicio de sesión exitoso:", loginResult);
             if(loginResult.isAdmin)
                 navigate('/admin');
             else{
                 if(loginResult.tipo == 0)
                     navigate('/mesero')
                 if(loginResult.tipo == 1)
-                    navigate('/cocina_principal')
+                    navigate(`/cocina_principal/${loginResult.id}`)
                 if(loginResult.tipo == 2)
                     navigate('/mesas_principal')
             }

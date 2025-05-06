@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import NavBarMeseros from '../Admin/NavBars/NavBarMeseros'
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { addDoc, serverTimestamp } from "firebase/firestore";
 
 function MenuMesero() {
   const [mesas, setMesas] = useState([]);
@@ -23,12 +24,61 @@ function MenuMesero() {
     nombre: "Mesa sin seleccionar",
   });
   const [seccionSeleccionada, setSeccionSeleccionada] = useState(null);
+  const [descripcion, setDescripcion] = useState("");
+  const [editandoIndex, setEditandoIndex] = useState(null);
+  const [enviandoPedido, setEnviandoPedido] = useState(false);
 
   useEffect(() => {
     loadMesas();
     loadSecciones();
     loadPlatillos();
   }, []);
+
+
+  const handleEditarPlatillo = (index) => {
+    const platilloAEditar = platillosSeleccionados[index];
+    setEditandoIndex(index);
+    handleSeleccionarPlatillo(platilloAEditar.idPlatillo)
+    setListaIngredientes(platilloAEditar.ingredientes || []);
+    setlistaExtra(platilloAEditar.extras || []);
+    setComplementoSeleccionado(platilloAEditar.complemento || null);
+    setCantidad(platilloAEditar.cantidad);
+    setDescripcion(platilloAEditar.descripcion || "");
+    setPlatilloEdicion(true);
+  };
+
+  const handleActualizarPlatillo = () => {
+    if (platilloActual && editandoIndex !== null) {
+      let costo = platilloActual.precio * cantidad;
+      if (listaExtra.length > 0) {
+        listaExtra.forEach((ext) => {
+          costo += ext.precio;
+        });
+      }
+
+      const platilloActualizado = {
+        idPlatillo: platilloSeleccionadoId,
+        nombre: platilloActual.nombre,
+        ingredientes: listaIngredientes,
+        extras: listaExtra.length > 0 ? listaExtra : null,
+        complemento: complementoSeleccionado || null,
+        cantidad: cantidad,
+        precio: costo,
+        descripcion: descripcion || null,
+        completado: false,
+      };
+
+      setPlatillosSeleccionados(prev =>
+        prev.map((item, index) =>
+          index === editandoIndex ? platilloActualizado : item
+        )
+      );
+
+      setEditandoIndex(null);
+      setSeccionSeleccionada(null);
+      handleReset();
+    }
+  };
 
   const handleMesaChange = (event) => {
     const idSeleccionado = event.target.value;
@@ -109,24 +159,32 @@ function MenuMesero() {
 
   const handleAgregarAlPedido = () => {
     if (platilloActual) {
+      let costo = platilloActual.precio
+      if (listaExtra.length > 0) {
+        listaExtra.map((ext) => {
+          costo = costo + ext.precio;
+        })
+      }
       const PlatilloEditado = {
         idPlatillo: platilloSeleccionadoId,
         nombre: platilloActual.nombre,
         ingredientes: listaIngredientes,
-        extras: listaExtra.length > 1 ? listaExtra : null,
+        extras: listaExtra.length > 0 ? listaExtra : null,
         complemento: complementoSeleccionado ? complementoSeleccionado : null,
         cantidad: cantidad,
+        precio: costo,
+        descripcion: descripcion ? descripcion : null,
+        completado: false,
       }
       console.log(PlatilloEditado);
-      //Arreglar el carrito
       setPlatillosSeleccionados(prev => [...prev, PlatilloEditado]);
       setSeccionSeleccionada(null);
       handleReset();
     }
   };
 
-  const handleQuitarPlatillo = (platilloId) => {
-    setPlatillosSeleccionados(prev => prev.filter(p => p.id !== platilloId));
+  const handleQuitarPlatillo = (index) => {
+    setPlatillosSeleccionados(prev => prev.filter((_, i) => i !== index));
   };
 
   const loadMesas = async () => {
@@ -194,16 +252,54 @@ function MenuMesero() {
   };
 
   const handleReset = () => {
-    setPlatilloSeleccionadoId(null)
-    setPlatilloActual(null)
+    setPlatilloSeleccionadoId(null);
+    setPlatilloActual(null);
     setPlatilloEdicion(false);
-    setExtrasPlatillo([])
-    setlistaExtra([])
-    setComplementosPlatillo([])
-    setComplementoSeleccionado();
-  }
+    setExtrasPlatillo([]);
+    setlistaExtra([]);
+    setComplementosPlatillo([]);
+    setComplementoSeleccionado(null);
+    setListaIngredientes([]);
+    setCantidad(1);
+    setDescripcion("");
+    setEditandoIndex(null);
+  };
 
+  const enviarPedido = async () => {
 
+    setEnviandoPedido(true);
+    if (!mesaSeleccionada.id) {
+      alert("Por favor selecciona una mesa primero");
+      return;
+    }
+
+    if (platillosSeleccionados.length === 0) {
+      alert("No hay platillos en el pedido");
+      return;
+    }
+
+    try {
+      const pedidoRef = collection(db, "ordenes");
+      const nuevoPedido = {
+        mesaId: mesaSeleccionada.id,
+        mesaNombre: mesaSeleccionada.nombre,
+        platillos: platillosSeleccionados,
+        total: platillosSeleccionados.reduce((sum, platillo) => sum + platillo.precio, 0),
+        estado: "pendiente",
+        preparando: false,
+        fecha: serverTimestamp()
+      };
+
+      await addDoc(pedidoRef, nuevoPedido);
+      alert("Pedido enviado correctamente");
+      setPlatillosSeleccionados([]); // Limpiar el carrito
+    } catch (error) {
+      console.error("Error enviando el pedido: ", error);
+      alert("Error al enviar el pedido");
+    } finally {
+      setEnviandoPedido(false);
+    }
+  };
 
   const seccionesMatriz = [];
   for (let i = 0; i < secciones.length; i += 6) {
@@ -215,20 +311,38 @@ function MenuMesero() {
       <NavBarMeseros />
 
       <div style={{ padding: "20px", width: "80vw", margin: "0 auto" }}>
-        <h3>Mesa: {""}
-          <select
-            onChange={handleMesaChange}
-            value={mesaSeleccionada.id}
-            style={{ marginBottom: "15px", padding: "8px" }}
-          >
-            <option value="">Sin mesa</option>
-            {mesas.map((mesa) => (
-              <option key={mesa.id} value={mesa.id}>
-                {mesa.username}
-              </option>
-            ))}
-          </select>
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
+          <h3>Mesa: {""}
+            <select
+              onChange={handleMesaChange}
+              value={mesaSeleccionada.id}
+              style={{ padding: "8px" }}
+            >
+              <option value="">Sin mesa</option>
+              {mesas.map((mesa) => (
+                <option key={mesa.id} value={mesa.id}>
+                  {mesa.username}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={enviarPedido}
+              disabled={platillosSeleccionados.length === 0 || !mesaSeleccionada.id || enviandoPedido}
+              style={{
+                padding: '8px 15px',
+                backgroundColor: platillosSeleccionados.length > 0 && mesaSeleccionada.id ? '#28a745' : '#cccccc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: platillosSeleccionados.length > 0 && mesaSeleccionada.id ? 'pointer' : 'not-allowed',
+                margin: '10px'
+              }}
+            >
+              {enviandoPedido ? 'Enviando...' : 'Enviar Pedido'}
+            </button>
+          </h3>
+        </div>
 
         {/* Matriz de secciones (6 columnas) */}
         {!seccionSeleccionada && (
@@ -384,6 +498,16 @@ function MenuMesero() {
               </div>
             )}
 
+            <div style={{ marginBottom: "15px" }}>
+              <label>Comentarios:</label>
+              <textarea
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                required
+                style={{ width: "100%", padding: "8px" }}
+              />
+            </div>
+
 
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: "center" }}>
@@ -402,7 +526,8 @@ function MenuMesero() {
 
 
               <button
-                onClick={() => setCantidad(cantidad + 1)}
+                onClick={() => setCantidad(cantidad - 1)}
+                disabled={cantidad <= 1}
                 style={{
                   padding: '10px 15px',
                   backgroundColor: '#007bff',
@@ -412,7 +537,7 @@ function MenuMesero() {
                   cursor: 'pointer'
                 }}
               >
-                +
+                -
               </button>
 
               <button
@@ -429,8 +554,7 @@ function MenuMesero() {
               </button>
 
               <button
-                onClick={() => setCantidad(cantidad - 1)}
-                disabled={cantidad <= 1}
+                onClick={() => setCantidad(cantidad + 1)}
                 style={{
                   padding: '10px 15px',
                   backgroundColor: '#007bff',
@@ -439,7 +563,7 @@ function MenuMesero() {
                   borderRadius: '4px',
                 }}
               >
-                -
+                +
               </button>
             </div>
 
@@ -463,7 +587,7 @@ function MenuMesero() {
               </button>
 
               <button
-                onClick={handleAgregarAlPedido}
+                onClick={editandoIndex !== null ? handleActualizarPlatillo : handleAgregarAlPedido}
                 style={{
                   padding: '10px 15px',
                   backgroundColor: '#28a745',
@@ -473,50 +597,59 @@ function MenuMesero() {
                   cursor: 'pointer'
                 }}
               >
-                Agregar al pedido
+                {editandoIndex !== null ? 'Actualizar platillo' : 'Agregar al pedido'}
               </button>
             </div>
           </div>
         )}
 
         {/* Lista de platillos seleccionados (carrito) */}
-        {platillosSeleccionados.length > 0 && (
-          <div style={{ marginTop: "30px", padding: '20px', border: '1px solid #ddd', borderRadius: '5px' }}>
-            <h3>Pedido para {mesaSeleccionada.nombre}:</h3>
-            <ul style={{ listStyle: 'none', padding: 0 }}>
-              {platillosSeleccionados.map((platillo, index) => (
-                <li
-                  key={`${platillo.id}-${index}`}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px',
-                    borderBottom: '1px solid #eee'
-                  }}
-                >
-                  <span>{platillo.nombre} - ${platillo.precio}</span>
-                  <button
-                    onClick={() => handleQuitarPlatillo(platillo.id)}
-                    style={{
-                      padding: '5px 10px',
-                      backgroundColor: '#f44336',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Quitar
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div style={{ marginTop: '15px', fontWeight: 'bold', fontSize: '1.2em' }}>
-              Total: ${platillosSeleccionados.reduce((sum, platillo) => sum + (parseFloat(platillo.precio) || 0), 0).toFixed(2)}
+        {platillosSeleccionados.map((platillo, index) => (
+          <li
+            key={`${index}-${Date.now()}`} // Mejor clave única
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '10px',
+              borderBottom: '1px solid #eee'
+            }}
+          >
+            <div>
+              <span>{platillo.nombre} - ${platillo.precio} | Cantidad: {platillo.cantidad}</span>
+              {platillo.descripcion && <div>Notas: {platillo.descripcion}</div>}
             </div>
-          </div>
-        )}
+            <div>
+              <button
+                onClick={() => handleEditarPlatillo(index)}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: '#ffc107',
+                  color: 'black',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  marginRight: '5px'
+                }}
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => handleQuitarPlatillo(index)}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Quitar
+              </button>
+            </div>
+          </li>
+        ))}
       </div>
     </div >
   )
