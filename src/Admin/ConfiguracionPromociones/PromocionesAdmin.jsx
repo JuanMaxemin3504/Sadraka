@@ -67,10 +67,10 @@ const PromocionesAdmin = () => {
                             <tr key={promo.id} style={{ borderBottom: '1px solid #ddd' }}>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>{promo.nombre}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>{promo.descripcion}</td>
-                                <td style={{ padding: '10px', textAlign: 'center' }}>{promo.tipo == 0 ? "3x2" :
-                                    (promo.tipo == 1 ? "2x1" : "$" + promo.precio)}</td>
-                                <td style={{ padding: '10px', textAlign: 'center' }}>{promo.tipo == 0 ? "3x2" :
-                                    (promo.tipo == 1 ? "2x1" : "Combo / paquete")} </td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>{promo.tipo == 0 ? "2x1" :
+                                    (promo.tipo == 1 ? "3x2" : "$" + promo.precio)}</td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>{promo.tipo == 0 ? "2x1" :
+                                    (promo.tipo == 1 ? "3x2" : "Combo / paquete")} </td>
 
                                 <td style={{ textAlign: 'center' }}>
                                     <Link to={`/editar_promociones_admin/${promo.id}`}>

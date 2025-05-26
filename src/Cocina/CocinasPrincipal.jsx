@@ -7,6 +7,7 @@ function CocinaPrincipal() {
   const [pedidos, setPedidos] = useState([]);
   const { idCocina } = useParams();
   const [nombreCocina, setNombreCocina] = useState("")
+  const [permisosPlatillos, setPermisosPlatillos] = useState([]);
 
   const cargarPermisos = async () => {
     console.log(idCocina);
@@ -56,13 +57,14 @@ function CocinaPrincipal() {
         if (platillosFiltrados.length > 0 && tienePlatillosPendientes) {
           pedidosFiltrados.push({
             ...pedido,
-            platillos: platillosFiltrados
+            platillos: pedido.platillos
           });
         }
       });
 
+      // Meter algoritmo
+
       setPedidos(pedidosFiltrados);
-      setError(null);
     } catch (err) {
       console.error("Error cargando pedidos:", err);
       setError("Error al cargar los pedidos");
@@ -75,33 +77,25 @@ function CocinaPrincipal() {
       const pedidoRef = doc(db, "ordenes", pedidoId);
       const pedidoDoc = await getDoc(pedidoRef);
       const pedidoActual = pedidoDoc.data();
-      
+
       // 2. Crear copia actualizada de los platillos
       const platillosActualizados = [...pedidoActual.platillos];
       platillosActualizados[platilloIndex] = {
         ...platillosActualizados[platilloIndex],
         completado: true
       };
-      
+
       // 3. Actualizar Firestore con el array completo
       await updateDoc(pedidoRef, {
         platillos: platillosActualizados
       });
-      
-      // 4. Actualizar el estado local
-      setPedidos(prev => prev.map(pedido => {
-        if (pedido.id === pedidoId) {
-          return {
-            ...pedido,
-            platillos: platillosActualizados
-          };
-        }
-        return pedido;
-      }));
-      
+
+      const permisos = await cargarPermisos();
+      cargarPedidos(permisos);
+
       // 5. Verificar si todos están completados
       await verificarCompletadoTotal(pedidoId);
-      
+
     } catch (err) {
       console.error("Error actualizando platillo:", err);
       alert("Error al marcar el platillo como completado");
@@ -154,11 +148,12 @@ function CocinaPrincipal() {
   useEffect(() => {
     const cargarTodo = async () => {
       const permisos = await cargarPermisos();
+      setPermisosPlatillos(permisos);
       cargarPedidos(permisos);
     };
 
     cargarTodo();
-    const interval = setInterval(cargarTodo, 5000);
+    const interval = setInterval(cargarTodo, 2000);
     return () => clearInterval(interval);
   }, [idCocina]);
 
@@ -203,40 +198,42 @@ function CocinaPrincipal() {
                 <h4>Platillos:</h4>
                 <ul style={{ listStyle: 'none', padding: 0 }}>
                   {pedido.platillos.map((platillo, index) => (
-                    <li
-                      key={`${platillo.idPlatillo}-${index}`}
-                      style={{
-                        padding: '10px',
-                        margin: '5px 0',
-                        backgroundColor: platillo.completado ? '#e8f5e9' : '#ffebee',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <div>
-                        <strong>{platillo.nombre}</strong>
-                        <div>Cantidad: {platillo.cantidad}</div>
-                        {platillo.descripcion && <div>Notas: {platillo.descripcion}</div>}
-                      </div>
-
-                      <button
-                        onClick={() => marcarPlatilloCompletado(pedido.id, index)}
-                        disabled={!pedido.preparando ? true : false}
+                    permisosPlatillos.includes(platillo.idPlatillo) && (
+                      <li
+                        key={`${platillo.idPlatillo}-${index}`}
                         style={{
-                          padding: '5px 10px',
-                          backgroundColor: !platillo.completado ? "red" : "#4CAF50",
-                          color: 'white',
-                          border: 'none',
+                          padding: '10px',
+                          margin: '5px 0',
+                          backgroundColor: platillo.completado ? '#e8f5e9' : '#ffebee',
                           borderRadius: '4px',
-                          cursor: 'pointer'
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
                         }}
                       >
-                        {!platillo.completado ? "Pendiente" : "Completado"}
+                        <div>
+                          <strong>{platillo.nombre}</strong>
+                          <div>Cantidad: {platillo.cantidad}</div>
+                          {platillo.descripcion && <div>Notas: {platillo.descripcion}</div>}
+                        </div>
 
-                      </button>
-                    </li>
+                        <button
+                          onClick={() => marcarPlatilloCompletado(pedido.id, index)}
+                          disabled={!pedido.preparando ? true : false}
+                          style={{
+                            padding: '5px 10px',
+                            backgroundColor: !platillo.completado ? "red" : "#4CAF50",
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: !pedido.preparando ? true : false
+                          }}
+                        >
+                          {!platillo.completado ? "Pendiente" : "Completado"}
+
+                        </button>
+                      </li>
+                    )
                   ))}
                 </ul>
               </div>

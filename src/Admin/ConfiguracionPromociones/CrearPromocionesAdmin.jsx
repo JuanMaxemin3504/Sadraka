@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../../firebase";
-import { doc, getDoc, addDoc, collection, getDocs, query, updateDoc } from "firebase/firestore";
+import { doc, getDoc, addDoc, collection, getDocs, query, updateDoc, serverTimestamp } from "firebase/firestore";
 import NavBarAdminPromos from "../NavBars/NavBarAdminPromos";
 
 const CrearPromocionesAdmin = () => {
@@ -64,7 +64,6 @@ const navigate = useNavigate();
         e.preventDefault();
         setIsSubmitting(true);
 
-
         if (platillosSeleccionados.length < 1) {
             alert("Se debe seleccionar por lo menos 1 platillo");
             setIsSubmitting(false);
@@ -89,10 +88,20 @@ const navigate = useNavigate();
                 setIsSubmitting(false);
                 return;
             }
+            if(new Date(fechaInicio) > new Date(getDay())){
+                alert("La fecha de inicio no puede anterior al dia actual");
+                setIsSubmitting(false);
+                return;
+            }
         }
 
         if (tipoPromocion === 2 && !precioPaquete) {
             alert("Debe especificar un precio para el paquete");
+            setIsSubmitting(false);
+            return;
+        }
+        if(tipoPromocion === 2 && parseFloat(precioPaquete) < 1){
+            alert("El precio del paquete debe ser mayor a 0");
             setIsSubmitting(false);
             return;
         }

@@ -54,7 +54,11 @@ function EdicionPedidosMesero() {
                 ...doc.data()
             }));
 
-            setPedidosPendientes(pedidosData);
+            const pedidosFiltrados = pedidosData.filter(pedido =>
+                pedido.preparando == false
+              )
+
+            setPedidosPendientes(pedidosFiltrados);
         } catch (error) {
             console.error("Error cargando pedidos:", error);
         } finally {
@@ -456,7 +460,7 @@ function EdicionPedidosMesero() {
                 )}
 
                 {/* Lista de platillos de la sección seleccionada */}
-                {seccionSeleccionada && !platilloEdicion && !cambioPedido && (
+                {seccionSeleccionada && !platilloEdicion && (
                     <div style={{ marginBottom: "30px" }}>
                         <h3>Platillos de la sección: {seccionSeleccionada.nombre} </h3>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -503,7 +507,7 @@ function EdicionPedidosMesero() {
                 )}
 
                 {/* Detalles del platillo seleccionado */}
-                {platilloEdicion && platilloActual && !cambioPedido &&(
+                {platilloEdicion && platilloActual &&(
                     <div style={{ marginBottom: "30px", }}>
                         <h3>{platilloActual.nombre}</h3>
                         <p>Precio: ${platilloActual.precio}</p>

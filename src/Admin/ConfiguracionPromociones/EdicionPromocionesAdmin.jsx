@@ -148,6 +148,11 @@ const EdicionPromocionesAdmin = () => {
             setIsSubmitting(false);
             return;
         }
+        if(tipoPromocion === 2 && parseFloat(precioPaquete) < 1){
+            alert("El precio del paquete debe ser mayor a 0");
+            setIsSubmitting(false);
+            return;
+        }
 
         try {
             const promocionData = {

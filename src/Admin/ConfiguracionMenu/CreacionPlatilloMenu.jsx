@@ -103,6 +103,9 @@ function CreacionPlatilloMenu() {
   const handleCheckboxChangeExtras = (extra) => {
     const existe = extrasSeleccionados.some((ext) => ext.id === extra.id);
 
+    // Agregar comprobacion de que el platillo no tenga extras 
+    // Agregar comprobacion de que el platillo no tenga complementos 
+
     if (existe) {
       setExtrasSeleccionados((prev) =>
         prev.filter((ext) => ext.id !== extra.id)
@@ -175,6 +178,8 @@ function CreacionPlatilloMenu() {
     console.log(seccionSeleccionada)
 
   };
+
+  //Hacer una funcion para contar los complementos del platillo y que no pasen de 5
 
   const handleSubmit = async (e) => {
     e.preventDefault();
