@@ -5,6 +5,9 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './Login/LoginUsers';
 import AdminPaginaAdmin from './Admin/AdminPaginaPrincipal';
+import ConfigurarSistemaAdmin from './Admin/ConfiguracionSistema/ConfigurarSistemaAdmin';
+import ReportesAdmin from './Admin/ConfiguracionReportes/ReportesAdmin';
+
 
 { /* Imports Meseros */}
 import MeserosPaginaPrincipal from './Meseros/MenuMesero';
@@ -56,6 +59,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/login" element={<Login />} />
         <Route path="/admin" element={<AdminPaginaAdmin />} />
         <Route path="/mesero" element={<MeserosPaginaPrincipal />} />
+        <Route path="/ConfigurarSistemaAdmin" element={<ConfigurarSistemaAdmin />} />
+        <Route path="/reportes" element={<ReportesAdmin />} />
 
         { /* Rutas Inventario */}
         <Route path="/inventario" element={<InventarioAdmin/>} />

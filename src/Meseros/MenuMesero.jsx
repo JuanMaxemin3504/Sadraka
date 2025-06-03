@@ -16,7 +16,7 @@ function MenuMesero() {
   const [listaExtra, setlistaExtra] = useState([]);
   const [extrasPlatillo, setExtrasPlatillo] = useState([])
   const [complementosPlatillo, setComplementosPlatillo] = useState([])
-  const [complementoSeleccionado, setComplementoSeleccionado] = useState();
+  const [complementoSeleccionado, setComplementoSeleccionado] = useState(null);
   const [platilloSeleccionadoId, setPlatilloSeleccionadoId] = useState(null)
   const [cantidad, setCantidad] = useState(1);
   const [mesaSeleccionada, setMesaSeleccionada] = useState({
@@ -102,6 +102,12 @@ function MenuMesero() {
 
   const handleActualizarPlatillo = () => {
     if (platilloActual && editandoIndex !== null) {
+
+      if (descripcion.length > 50) {
+        alert("El comentario no puede exceder los 50 caracteres");
+        return
+      }
+
       let costo = platilloActual.precio * cantidad;
       if (listaExtra.length > 0) {
         listaExtra.forEach((ext) => {
@@ -119,6 +125,12 @@ function MenuMesero() {
         precio: costo,
         descripcion: descripcion || null,
         completado: false,
+        tiempo: platilloActual.tiempo,
+        prioridad: platilloActual.prioridad,
+        ...(promocionSeleccionada && {
+          esPromocion: true,
+          idPromocion: promocionSeleccionada.id
+        })
       };
 
       if (personalizarPlatilloPromo) {
@@ -127,12 +139,10 @@ function MenuMesero() {
             index === editandoIndex ? platilloActualizado : item
           )
         );
-        setPersonalizarPlatilloPromo(false)
+        setPersonalizarPlatilloPromo(false);
         if (!editandoPromo) {
-          console.log("Soft")
           handleResetSoft();
         } else {
-          console.log("SoftM")
           handleResetSoftModificacion();
         }
       } else {
@@ -143,7 +153,6 @@ function MenuMesero() {
         );
         setSeccionSeleccionada(null);
         handleReset();
-        console.log("Platillo agregado")
       }
     }
   };
@@ -230,7 +239,6 @@ function MenuMesero() {
     console.log(promocion);
     setPromocionSeleccionada(promocion);
 
-    // Filtrar los platillos que pertenecen a la promoción
     const platillosDePromocion = platillos.filter(platillo =>
       promocion.platillos.some(p => p.id === platillo.id)
     );
@@ -238,28 +246,29 @@ function MenuMesero() {
     setPlatillosFiltrados(platillosDePromocion);
 
     if (promocion.tipo !== 2) {
-      // Para promociones 2x1 o 3x2, permitir selección manual
       setPlatillosPromocion([]);
       setSeleccionarPlatillosPromocion(true);
     } else {
-      // Para promociones por paquete (tipo 2), agregar automáticamente todos los platillos
-      const platillosParaPedido = platillosDePromocion.map(platillo => ({
-        idPlatillo: platillo.id,
-        nombre: platillo.nombre,
-        ingredientes: null,
-        extras: null,
-        complemento: null,
-        cantidad: 1,
-        precio: platillo.precio,
-        descripcion: null,
-        completado: false,
-        esPromocion: true,  // Campo adicional para identificar que es parte de una promoción
-        idPromocion: promocion.id  // Guardar referencia a la promoción
-      }));
+      // Para promociones por paquete, permitir personalización de cada platillo
+      setPlatillosPromocion(
+        platillosDePromocion.map(platillo => ({
+          idPlatillo: platillo.id,
+          nombre: platillo.nombre,
+          ingredientes: [],
+          extras: [],
+          complemento: null,
+          cantidad: 1,
+          precio: platillo.precio,
+          descripcion: null,
+          tiempo: platillo.tiempo,
+          prioridad: platillo.prioridad,
+          completado: false,
+          esPromocion: true,
+          idPromocion: promocion.id
+        }))
+      );
 
-      setPlatillosPromocion(platillosParaPedido);
-
-      // Mostrar pantalla para personalizar cada platillo si es necesario
+      // Mostrar pantalla para personalizar cada platillo
       setSeleccionarPlatillosPromocion(true);
     }
   };
@@ -277,7 +286,7 @@ function MenuMesero() {
           const ext = [];
           const comp = [];
           platilloData.extras.forEach(element => {
-            if (element.extra) {
+            if (element.extra == true) {
               ext.push(element)
             } else {
               comp.push(element)
@@ -289,6 +298,7 @@ function MenuMesero() {
       } else {
         alert("Platillo no encontrado");
       }
+      console.log(platilloData)
     } catch (error) {
       console.error("Error cargando el platillo: ", error);
     }
@@ -298,32 +308,41 @@ function MenuMesero() {
     const tipo = promocionSeleccionada.tipo;
     if (tipo == 1) {
       if (platillosPromocion.length > 2) {
-        alert("Solo se pueden eleguir 3 platillos como maximo");
-        return
+        alert("Solo se pueden elegir 3 platillos como máximo");
+        return;
       }
     } else {
       if (platillosPromocion.length > 1) {
-        alert("Solo se pueden eleguir 2 platillos como maximo");
-        return
+        alert("Solo se pueden elegir 2 platillos como máximo");
+        return;
       }
     }
+
     try {
       const platilloRef = doc(db, "menu", platilloId);
       const platilloDoc = await getDoc(platilloRef);
       if (platilloDoc.exists()) {
         const platilloData = platilloDoc.data();
-        const PlatilloEditado = {
-          idPlatillo: platilloId,
-          nombre: platilloData.nombre,
-          ingredientes: null,
-          extras: null,
-          complemento: null,
-          cantidad: 1,
-          precio: platilloData.precio,
-          descripcion: descripcion ? descripcion : null,
-          completado: false,
+
+        // Configurar extras y complementos disponibles
+        const ext = [];
+        const comp = [];
+        if (platilloData.extras) {
+          platilloData.extras.forEach(element => {
+            if (element.extra) {
+              ext.push(element);
+            } else {
+              comp.push(element);
+            }
+          });
         }
-        setPlatillosPromocion(prev => [...prev, PlatilloEditado]);
+
+        setExtrasPlatillo(ext);
+        setComplementosPlatillo(comp);
+        setPlatilloSeleccionadoId(platilloId);
+        setPlatilloActual(platilloData);
+        setPersonalizarPlatilloPromo(true);
+
       } else {
         alert("Platillo no encontrado");
       }
@@ -334,6 +353,12 @@ function MenuMesero() {
 
   const handleAgregarAlPedido = () => {
     if (platilloActual) {
+
+      if (descripcion.length > 50) {
+        alert("El comentario no puede exceder los 50 caracteres");
+        return
+      }
+
       let costo = platilloActual.precio * cantidad;
       if (listaExtra.length > 0) {
         listaExtra.forEach((ext) => {
@@ -350,6 +375,8 @@ function MenuMesero() {
         precio: costo,
         descripcion: descripcion || null,
         completado: false,
+        tiempo: platilloActual.tiempo,
+        prioridad: platilloActual.prioridad,
       };
 
       setPlatillosSeleccionados(prev => [...prev, PlatilloEditado]);
@@ -399,11 +426,16 @@ function MenuMesero() {
       const productosRef = collection(db, "secciones");
       const q = query(productosRef, orderBy("posicion", "asc"));
       const querySnapshot = await getDocs(q);
-      const seccionesData = querySnapshot.docs.map(doc => ({
+      let seccionesData = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      // La seccion pase "otros" se muestre hasta el final
+
+      // Mover la primera sección al final
+      if (seccionesData.length > 0) {
+        const primeraSeccion = seccionesData.shift(); // Remueve el primer elemento
+        seccionesData.push(primeraSeccion); // Agrega al final
+      }
 
       setSecciones(seccionesData);
     } catch (error) {
@@ -517,6 +549,8 @@ function MenuMesero() {
       return;
     }
 
+    let puntos = 0;
+
     try {
       // Función para extraer extras y complementos de un platillo
       const extraerDetallesPlatillo = (platillo) => {
@@ -526,22 +560,32 @@ function MenuMesero() {
         if (platillo.extras && platillo.extras.length > 0) {
           platillo.extras.forEach(extra => {
             detalles.push({
+              idPlatillo: extra.id,
               tipo: 'extra',
               nombre: extra.nombre,
               precio: extra.precio,
-              platilloAsociado: platillo.nombre
+              platilloAsociado: platillo.nombre,
+              prioridad: platillo.prioridad,
+              tiempo: platillo.tiempo,
+              completado: false
             });
+            puntos = puntos + parseInt(platillo.prioridad);
           });
         }
 
         // Agregar complemento si existe
         if (platillo.complemento) {
           detalles.push({
+            idPlatillo: platillo.complemento.id,  // <-- Corregido: ahora sí hace referencia al complemento del platillo
             tipo: 'complemento',
             nombre: platillo.complemento.nombre,
             precio: platillo.complemento.precio || 0,
-            platilloAsociado: platillo.nombre
+            platilloAsociado: platillo.nombre,
+            prioridad: platillo.prioridad,
+            tiempo: platillo.tiempo,
+            completado: false
           });
+          puntos = puntos + parseInt(platillo.prioridad);
         }
 
         return detalles;
@@ -556,6 +600,7 @@ function MenuMesero() {
           ...todosExtrasComplementos,
           ...extraerDetallesPlatillo(platillo)
         ];
+        puntos = puntos + parseInt(platillo.prioridad) * platillo.cantidad;
       });
 
       // Procesar platillos en promociones
@@ -565,6 +610,7 @@ function MenuMesero() {
             ...todosExtrasComplementos,
             ...extraerDetallesPlatillo(platillo)
           ];
+          puntos = puntos + parseInt(platillo.prioridad);
         });
       });
 
@@ -578,6 +624,7 @@ function MenuMesero() {
         total: platillosSeleccionados.reduce((sum, platillo) => sum + platillo.precio, 0) +
           carritoPromociones.reduce((sum, promo) => sum + promo.precio, 0),
         estado: "pendiente",
+        puntos: puntos,
         preparando: false,
         fecha: serverTimestamp()
       };
@@ -629,14 +676,14 @@ function MenuMesero() {
 
             <button
               onClick={enviarPedido}
-              disabled={platillosSeleccionados.length === 0 || carritoPromociones.length === 0 || !mesaSeleccionada.id || enviandoPedido}
+              disabled={(platillosSeleccionados.length === 0 && carritoPromociones.length === 0) || !mesaSeleccionada.id || enviandoPedido}
               style={{
                 padding: '8px 15px',
-                backgroundColor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0 ) && mesaSeleccionada.id ? '#28a745' : '#cccccc',
+                backgroundColor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesaSeleccionada.id ? '#28a745' : '#cccccc',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0 ) && mesaSeleccionada.id ? 'pointer' : 'not-allowed',
+                cursor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesaSeleccionada.id ? 'pointer' : 'not-allowed',
                 margin: '10px'
               }}
             >
@@ -1021,9 +1068,10 @@ function MenuMesero() {
                 <h4>Complementos:</h4>
                 <select
                   onChange={handleComplementoChange}
-                  value={complementoSeleccionado.id}
+                  value={complementoSeleccionado?.id || ""}
                   style={{ marginBottom: "15px", padding: "8px" }}
                 >
+                  <option value="">Seleccione un complemento</option>
                   {complementosPlatillo.map((comp) => (
                     <option key={comp.id} value={comp.id}>
                       {comp.nombre}
@@ -1031,7 +1079,7 @@ function MenuMesero() {
                   ))}
                 </select>
               </div>
-            )}
+            )}  
 
             <br />
 

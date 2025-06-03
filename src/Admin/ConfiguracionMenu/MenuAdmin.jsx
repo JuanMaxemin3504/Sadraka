@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db, storage } from "../../firebase";
-import { collection, query, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, query, getDocs, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { deleteObject, ref } from "firebase/storage";
 import NavBarMenuAdmin from "../NavBars/NavBarMenuAdmin";
@@ -114,6 +114,7 @@ function MenuAdmin() {
         }
     }
 
+
     const mapaSecciones = new Map();
     secciones.forEach((seccion) => {
         mapaSecciones.set(seccion.id, seccion.posicion);
@@ -138,7 +139,11 @@ function MenuAdmin() {
         <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
             <NavBarMenuAdmin />
             <div style={{ justifyContent: 'center', padding: '20px' }}>
-                <h1>Lista de Productos</h1>
+                <h1 style={{ textAlign: 'center', padding: '20px' }}>
+                    <div >
+                        Lista de Productos
+                    </div>
+                </h1>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useParams } from 'react-router-dom';
+import { MetodoDeOrdenamiento } from './MetodoDeOrdenamiento';
 
 function CocinaPrincipal() {
   const [pedidos, setPedidos] = useState([]);
@@ -10,96 +11,180 @@ function CocinaPrincipal() {
   const [permisosPlatillos, setPermisosPlatillos] = useState([]);
 
   const cargarPermisos = async () => {
-    console.log(idCocina);
     try {
       const cocinaRef = doc(db, "users", idCocina);
       const cocinaDoc = await getDoc(cocinaRef);
       setNombreCocina(cocinaDoc.data().username);
 
       if (cocinaDoc.exists()) {
-        console.log(cocinaDoc.data().permisos);
         const permisosIds = cocinaDoc.data().permisos.map(permiso => permiso.id);
-        return (permisosIds)
-      } else {
-        console.log("No se encontró el documento de la cocina");
-        return ([])
+        return permisosIds;
       }
+      return [];
     } catch (err) {
       console.error("Error cargando permisos:", err);
-      setError("Error al cargar los permisos");
+      return [];
     }
   };
 
-  const cargarPedidos = async (permisos) => {
+  const cargarPedidos = async (permisos, pedidosPrevios = []) => {
     try {
       const pedidosRef = collection(db, "ordenes");
       const q = query(pedidosRef, where("estado", "==", "pendiente"));
       const querySnapshot = await getDocs(q);
 
-      const pedidosFiltrados = [];
+      // Obtener nuevas órdenes y filtrar las no duplicadas
+      const nuevasOrdenes = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })).filter(nuevaOrden =>
+        !pedidosPrevios.some(orden => orden.id === nuevaOrden.id)
+      );
 
-      querySnapshot.forEach((doc) => {
-        const pedido = { id: doc.id, ...doc.data() };
+      console.log("Nuevas órdenes:", nuevasOrdenes);
 
-        // Filtrar platillos que esta cocina puede ver
-        const platillosFiltrados = pedido.platillos.filter(platillo =>
-          permisos.includes(platillo.idPlatillo)
-        )
+      const InformacionRef = doc(db, "informacion", "MetodoOrdenamiento");
+      const InformacionDoc = await getDoc(InformacionRef);
+      const InformacionData = InformacionDoc.data();
+      // Combinar con las previas solo si hay nuevas
+      let todasLasOrdenes = [...pedidosPrevios];
+      if (nuevasOrdenes.length > 0) {
+        todasLasOrdenes = [...pedidosPrevios, ...nuevasOrdenes];
+        console.log("Órdenes combinadas:", todasLasOrdenes);
 
-        // Verificar que haya al menos 1 platillo no completado entre los permitidos
-        const tienePlatillosPendientes = platillosFiltrados.some(
-          platillo => !platillo.completado
-        );
+        // Ordenar solo si hubo nuevas órdenes
+        if(InformacionData.prioridad){
+          todasLasOrdenes = await MetodoDeOrdenamiento(todasLasOrdenes);
+        }        
+        console.log("Órdenes ordenadas:", todasLasOrdenes);
+      }
 
-        // Solo incluir el pedido si:
-        // 1. Tiene platillos que esta cocina puede ver
-        // 2. Al menos uno de esos platillos no está completado
-        if (platillosFiltrados.length > 0 && tienePlatillosPendientes) {
-          pedidosFiltrados.push({
-            ...pedido,
-            platillos: pedido.platillos
-          });
-        }
-      });
+      // Filtrar por permisos y pendientes
+      const pedidosFiltrados = todasLasOrdenes
+        .filter(pedido => {
+          const platillos = pedido.platillos || [];
+          const extrasYcomplementos = pedido.extrasYcomplementos || [];
+          const promociones = pedido.promociones || [];
 
-      // Meter algoritmo
+          const platillosFiltrados = platillos.filter(p => p && permisos.includes(p.idPlatillo));
+          const extrasFiltrados = extrasYcomplementos.filter(e => e && permisos.includes(e.idPlatillo));
+          const promocionesFiltradas = promociones.filter(promo =>
+            promo && promo.platillos.some(p => p && permisos.includes(p.idPlatillo))
+          );
+
+          return (
+            platillosFiltrados.some(p => !p.completado) ||
+            extrasFiltrados.some(e => !e.completado) ||
+            promocionesFiltradas.some(promo =>
+              promo.platillos.some(p => !p.completado)
+            )
+          );
+        })
+        .map(pedido => ({
+          ...pedido,
+          platillos: pedido.platillos || [],
+          extrasYcomplementos: pedido.extrasYcomplementos || [],
+          promociones: pedido.promociones || []
+        }));
 
       setPedidos(pedidosFiltrados);
+      return pedidosFiltrados; // Retornar para posible uso futuro
     } catch (err) {
       console.error("Error cargando pedidos:", err);
-      setError("Error al cargar los pedidos");
+      throw err; // Relanzar el error para manejo superior
     }
   };
 
   const marcarPlatilloCompletado = async (pedidoId, platilloIndex) => {
     try {
-      // 1. Obtener el pedido actual
       const pedidoRef = doc(db, "ordenes", pedidoId);
       const pedidoDoc = await getDoc(pedidoRef);
       const pedidoActual = pedidoDoc.data();
 
-      // 2. Crear copia actualizada de los platillos
-      const platillosActualizados = [...pedidoActual.platillos];
-      platillosActualizados[platilloIndex] = {
-        ...platillosActualizados[platilloIndex],
-        completado: true
-      };
+      const platillos = pedidoActual.platillos || [];
+      const platillosActualizados = [...platillos];
 
-      // 3. Actualizar Firestore con el array completo
-      await updateDoc(pedidoRef, {
-        platillos: platillosActualizados
-      });
+      if (platilloIndex < platillosActualizados.length) {
+        platillosActualizados[platilloIndex] = {
+          ...platillosActualizados[platilloIndex],
+          completado: true
+        };
+      }
 
-      const permisos = await cargarPermisos();
-      cargarPedidos(permisos);
-
-      // 5. Verificar si todos están completados
-      await verificarCompletadoTotal(pedidoId);
-
+      await updateDoc(pedidoRef, { platillos: platillosActualizados });
+      await actualizarYVerificar(pedidoId);
     } catch (err) {
       console.error("Error actualizando platillo:", err);
       alert("Error al marcar el platillo como completado");
     }
+  };
+
+  const marcarExtraCompletado = async (pedidoId, extraIndex) => {
+    try {
+      const pedidoRef = doc(db, "ordenes", pedidoId);
+      const pedidoDoc = await getDoc(pedidoRef);
+      const pedidoActual = pedidoDoc.data();
+  
+      // Obtener el array de extrasYcomplementos (o array vacío si es null/undefined)
+      const extrasYcomplementos = pedidoActual.extrasYcomplementos || [];
+      const extrasActualizados = [...extrasYcomplementos];
+  
+      // Verificar que el índice sea válido
+      if (extraIndex < extrasActualizados.length) {
+        extrasActualizados[extraIndex] = {
+          ...extrasActualizados[extraIndex],
+          completado: true
+        };
+  
+        // Actualizar SOLO el campo extrasYcomplementos
+        await updateDoc(pedidoRef, { 
+          extrasYcomplementos: extrasActualizados 
+        });
+        
+        await actualizarYVerificar(pedidoId);
+      }
+    } catch (err) {
+      console.error("Error actualizando extra/complemento:", err);
+      alert("Error al marcar el extra/complemento como completado");
+    }
+  };
+
+  const marcarPlatilloPromocionCompletado = async (pedidoId, promocionIndex, platilloIndex) => {
+    try {
+      const pedidoRef = doc(db, "ordenes", pedidoId);
+      const pedidoDoc = await getDoc(pedidoRef);
+      const pedidoActual = pedidoDoc.data();
+
+      const promociones = pedidoActual.promociones || [];
+      const promocion = promociones[promocionIndex];
+
+      if (!promocion) return;
+
+      const platillosActualizados = [...promocion.platillos];
+      if (platilloIndex < platillosActualizados.length) {
+        platillosActualizados[platilloIndex] = {
+          ...platillosActualizados[platilloIndex],
+          completado: true
+        };
+      }
+
+      promociones[promocionIndex] = {
+        ...promocion,
+        platillos: platillosActualizados
+      };
+
+      await updateDoc(pedidoRef, { promociones: promociones });
+      await actualizarYVerificar(pedidoId);
+    } catch (err) {
+      console.error("Error actualizando platillo de promoción:", err);
+      alert("Error al marcar el platillo como completado");
+    }
+  };
+
+  const actualizarYVerificar = async (pedidoId) => {
+    const permisos = await cargarPermisos();
+    cargarPedidos(permisos);
+    await verificarCompletadoTotal(pedidoId);
   };
 
   const verificarCompletadoTotal = async (pedidoId) => {
@@ -110,23 +195,27 @@ function CocinaPrincipal() {
       if (!pedidoSnapshot.exists()) return;
 
       const pedidoActual = pedidoSnapshot.data();
+      const platillos = pedidoActual.platillos || [];
+      const extrasYcomplementos = pedidoActual.extrasYcomplementos || [];
+      const promociones = pedidoActual.promociones || [];
 
-      const todosCompletados = pedidoActual.platillos.every(p => p.completado);
+      const todosCompletados =
+        platillos.every(p => p?.completado) &&
+        extrasYcomplementos.every(e => e?.completado) &&
+        promociones.every(promo =>
+          promo?.platillos.every(p => p?.completado)
+        );
 
       if (todosCompletados) {
-        // Actualizamos ambos campos: estado Y platillos (para mantenerlos)
         await updateDoc(pedidoRef, {
           estado: "completado",
-          platillos: pedidoActual.platillos // Mantenemos los platillos existentes
+          platillos,
+          extrasYcomplementos,
+          promociones
         });
 
-        // Actualización local manteniendo todos los platillos
         setPedidos(prev => prev.map(p =>
-          p.id === pedidoId ? {
-            ...p,
-            estado: "completado",
-            platillos: p.platillos // Mantenemos los platillos en el estado local
-          } : p
+          p.id === pedidoId ? { ...p, estado: "completado" } : p
         ));
       }
     } catch (err) {
@@ -137,9 +226,7 @@ function CocinaPrincipal() {
   const empezarOrden = async (pedidoId) => {
     try {
       const pedidoRef = doc(db, "ordenes", pedidoId);
-      await updateDoc(pedidoRef, {
-        preparando: true,
-      });
+      await updateDoc(pedidoRef, { preparando: true });
     } catch (err) {
       console.error("Error al empezar la orden:", err);
     }
@@ -149,14 +236,13 @@ function CocinaPrincipal() {
     const cargarTodo = async () => {
       const permisos = await cargarPermisos();
       setPermisosPlatillos(permisos);
-      cargarPedidos(permisos);
+      cargarPedidos(permisos, pedidos);
     };
 
     cargarTodo();
-    const interval = setInterval(cargarTodo, 2000);
+    const interval = setInterval(cargarTodo, 5000);
     return () => clearInterval(interval);
   }, [idCocina]);
-
 
   return (
     <div style={{ padding: '20px' }}>
@@ -166,83 +252,173 @@ function CocinaPrincipal() {
         <p>No hay pedidos pendientes con platillos de esta cocina</p>
       ) : (
         <div style={{ display: 'grid', gap: '20px' }}>
-          {pedidos.map((pedido) => (
-            <div
-              key={pedido.id}
-              style={{
-                border: '1px solid #ddd',
-                borderRadius: '8px',
-                padding: '15px',
-                backgroundColor: !pedido.preparando ? "#f9f9f9" : "#F2DF61",
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <h3>Pedido #{pedido.id.substring(0, 6)} - Mesa: {pedido.mesaNombre}</h3>
-                <button
-                  onClick={() => empezarOrden(pedido.id)}
-                  style={{
-                    padding: '5px 10px',
-                    backgroundColor: !pedido.preparando ? "red" : "#4CAF50",
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {!pedido.preparando ? "Empezar a cocinar" : "Cocinando"}
+          {pedidos.map((pedido) => {
+            const platillos = pedido.platillos || [];
+            const extrasYcomplementos = pedido.extrasYcomplementos || [];
+            const promociones = pedido.promociones || [];
 
-                </button>
-              </div>
+            return (
+              <div
+                key={pedido.id}
+                style={{
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  backgroundColor: !pedido.preparando ? "#f9f9f9" : "#F2DF61",
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <h3>Pedido #{pedido.id.substring(0, 6)} - Mesa: {pedido.mesaNombre}</h3>
+                  <button
+                    onClick={() => empezarOrden(pedido.id)}
+                    style={{
+                      padding: '5px 10px',
+                      backgroundColor: !pedido.preparando ? "red" : "#4CAF50",
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {!pedido.preparando ? "Empezar a cocinar" : "Cocinando"}
+                  </button>
+                </div>
 
-              <div style={{ marginTop: '10px' }}>
-                <h4>Platillos:</h4>
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                  {pedido.platillos.map((platillo, index) => (
-                    permisosPlatillos.includes(platillo.idPlatillo) && (
-                      <li
-                        key={`${platillo.idPlatillo}-${index}`}
-                        style={{
-                          padding: '10px',
-                          margin: '5px 0',
-                          backgroundColor: platillo.completado ? '#e8f5e9' : '#ffebee',
-                          borderRadius: '4px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <div>
-                          <strong>{platillo.nombre}</strong>
-                          <div>Cantidad: {platillo.cantidad}</div>
-                          {platillo.descripcion && <div>Notas: {platillo.descripcion}</div>}
-                        </div>
-
-                        <button
-                          onClick={() => marcarPlatilloCompletado(pedido.id, index)}
-                          disabled={!pedido.preparando ? true : false}
+                <div style={{ marginTop: '10px' }}>
+                  <h4>Platillos:</h4>
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    {platillos.map((platillo, index) => (
+                      platillo && permisosPlatillos.includes(platillo.idPlatillo) && (
+                        <li
+                          key={`${platillo.idPlatillo}-${index}`}
                           style={{
-                            padding: '5px 10px',
-                            backgroundColor: !platillo.completado ? "red" : "#4CAF50",
-                            color: 'white',
-                            border: 'none',
+                            padding: '10px',
+                            margin: '5px 0',
+                            backgroundColor: platillo.completado ? '#e8f5e9' : '#ffebee',
                             borderRadius: '4px',
-                            cursor: !pedido.preparando ? true : false
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
                           }}
                         >
-                          {!platillo.completado ? "Pendiente" : "Completado"}
+                          <div>
+                            <strong>{platillo.nombre}</strong>
+                            <div>Cantidad: {platillo.cantidad}</div>
+                            {platillo.descripcion && <div>Notas: {platillo.descripcion}</div>}
+                          </div>
 
-                        </button>
-                      </li>
+                          <button
+                            onClick={() => marcarPlatilloCompletado(pedido.id, index)}
+                            disabled={!pedido.preparando}
+                            style={{
+                              padding: '5px 10px',
+                              backgroundColor: !platillo.completado ? "red" : "#4CAF50",
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {!platillo.completado ? "Pendiente" : "Completado"}
+                          </button>
+                        </li>
+                      )
+                    ))}
+
+                    {extrasYcomplementos.map((item, index) => (
+                      item && permisosPlatillos.includes(item.idPlatillo) && (
+                        <li
+                          key={`${item.idPlatillo}-${index}`}
+                          style={{
+                            padding: '10px',
+                            margin: '5px 0',
+                            backgroundColor: item.completado ? '#e8f5e9' : '#ffebee',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <div>
+                            <strong>{item.nombre}</strong>
+                            <div>Tipo: {item.tipo}</div>
+                            {item.platilloAsociado && <div>Para: {item.platilloAsociado}</div>}
+                          </div>
+
+                          <button
+                            onClick={() => marcarExtraCompletado(pedido.id, index)}
+                            disabled={!pedido.preparando}
+                            style={{
+                              padding: '5px 10px',
+                              backgroundColor: !item.completado ? "red" : "#4CAF50",
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {!item.completado ? "Pendiente" : "Completado"}
+                          </button>
+                        </li>
+                      )
+                    ))}
+                  </ul>
+
+                  {promociones.map((promocion, promocionIndex) => (
+                    permisosPlatillos.some(permiso =>
+                      promocion.platillos.some(p => p.idPlatillo === permiso)
+                    ) && (
+                      <div key={`promo-${promocionIndex}`} style={{ marginTop: '15px' }}>
+                        <ul style={{ listStyle: 'none', padding: 0 }}>
+                          {promocion.platillos.map((platillo, platilloIndex) => (
+                            platillo && permisosPlatillos.includes(platillo.idPlatillo) && (
+                              <li
+                                key={`${platillo.idPlatillo}-${platilloIndex}`}
+                                style={{
+                                  padding: '10px',
+                                  margin: '5px 0',
+                                  backgroundColor: platillo.completado ? '#e8f5e9' : '#ffebee',
+                                  borderRadius: '4px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <div>
+                                  <strong>{platillo.nombre}</strong>
+                                  <div>Cantidad: {platillo.cantidad}</div>
+                                  {platillo.descripcion && <div>Notas: {platillo.descripcion}</div>}
+                                </div>
+
+                                <button
+                                  onClick={() => marcarPlatilloPromocionCompletado(pedido.id, promocionIndex, platilloIndex)}
+                                  disabled={!pedido.preparando}
+                                  style={{
+                                    padding: '5px 10px',
+                                    backgroundColor: !platillo.completado ? "red" : "#4CAF50",
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {!platillo.completado ? "Pendiente" : "Completado"}
+                                </button>
+                              </li>
+                            )
+                          ))}
+                        </ul>
+                      </div>
                     )
                   ))}
-                </ul>
-              </div>
+                </div>
 
-              <div style={{ marginTop: '10px', fontStyle: 'italic' }}>
-                Hora del pedido: {new Date(pedido.fecha?.toDate()).toLocaleTimeString()}
+                <div style={{ marginTop: '10px', fontStyle: 'italic' }}>
+                  Hora del pedido: {pedido.fecha ? new Date(pedido.fecha.toDate()).toLocaleTimeString() : 'No disponible'}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

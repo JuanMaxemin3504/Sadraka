@@ -69,6 +69,13 @@ function AdminPaginaPrincipal() {
                                     </Paper>
                                 </Link>
                             </Grid>
+                            <Grid item xs={4}>
+                                <Link href="/ConfigurarSistemaAdmin" underline="none">
+                                    <Paper style={{ padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
+                                        <Typography variant="h6">Configuracion sistema</Typography>
+                                    </Paper>
+                                </Link>
+                            </Grid>
                         </Grid>
                     </div>
                 </div>

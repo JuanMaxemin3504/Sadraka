@@ -21,7 +21,7 @@ function EdicionMenuAdmin() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [secciones, setSecciones] = useState([]);
     const [tiempo, setTiempo] = useState("");
-    const [prioridad, setPrioriad] = useState("");
+    const [prioridad, setPrioriad] = useState(1);
 
     const [seccionSeleccionada, setSeccionSeleccionada] = useState({
         id: "",
@@ -103,7 +103,11 @@ function EdicionMenuAdmin() {
         } else {
             setExtrasSeleccionados((prev) => [
                 ...prev,
-                { ...extra, costo: 0, extra: true },
+                {
+                    ...extra,
+                    costo: 0, // Inicializamos en 0 (se ajustará después si es extra)
+                    extra: true // Por defecto es extra (el usuario puede cambiarlo a complemento)
+                },
             ]);
         }
     };
@@ -183,6 +187,10 @@ function EdicionMenuAdmin() {
                 setPrioriad(platilloData.prioridad);
                 setTiempo(platilloData.tiempo);
                 setSecciones(platilloData.seccion);
+                setSeccionSeleccionada({
+                    id: platilloData.seccion.id,
+                    nombre: platilloData.seccion.nombre,
+                })
             } else {
                 alert("Platillo no encontrado");
             }
@@ -209,32 +217,33 @@ function EdicionMenuAdmin() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!nombre || !precio || !descripcion || ingredientesSeleccionados.length === 0) {
+        // Validación de campos obligatorios
+        if (!nombre || !precio || !descripcion || ingredientesSeleccionados.length === 0 || !tiempo) {
             alert("Por favor, completa todos los campos y selecciona al menos un ingrediente.");
             return;
         }
 
-        if (parseInt(tiempo) > 45) {
-            alert("El tiempo no puede ser mayor 45");
+        // Validar que los extras de tipo "extra" tengan costo > 0
+        const extraSinCosto = extrasSeleccionados.some(
+            (ext) => ext.extra === true && ext.costo <= 0
+        );
+
+        if (extraSinCosto) {
+            alert("Los extras deben tener un costo mayor a 0.");
             return;
         }
 
-        if (parseInt(tiempo) < 1) {
-            alert("El tiempo no puede ser menor 1");
+        // Resto de validaciones (tiempo, etc.)
+        if (parseInt(tiempo) > 45 || parseInt(tiempo) < 1) {
+            alert("El tiempo debe estar entre 1 y 45 minutos.");
             return;
         }
 
         setIsSubmitting(true);
 
         try {
-            let downloadUrl = "";
-            if (file) {
-                const storageRef = ref(storage, `platillos/${file.name}`);
-                await uploadBytes(storageRef, file);
-                downloadUrl = await getDownloadURL(storageRef);
-            } else {
-                downloadUrl = urlImagenBlanco;
-            }
+            // Subir imagen y crear el platillo (código existente)
+            let downloadUrl = file ? await subirImagen(file) : urlImagenBlanco;
 
             const platillo = {
                 nombre,
@@ -242,28 +251,38 @@ function EdicionMenuAdmin() {
                 descripcion,
                 url: downloadUrl,
                 estatus: true,
-                ingredientes: ingredientesSeleccionados,
-                extras: extrasSeleccionados.length > 0
-                    ? extrasSeleccionados : null,
                 tiempo: parseInt(tiempo),
                 prioridad: parseInt(prioridad),
+                ingredientes: ingredientesSeleccionados.map((ing) => ({
+                    id: ing.id,
+                    nombre: ing.nombre,
+                    cantidad: ing.cantidad,
+                    unitario: ing.ingreso !== "KG",
+                })),
+                extras: extrasSeleccionados.length > 0
+                    ? extrasSeleccionados.map((ext) => {
+                        const data = {
+                            id: ext.id,
+                            nombre: ext.nombre,
+                            extra: ext.extra,
+                        };
+                        if (ext.extra) {
+                            data.costo = parseFloat(ext.costo) || 0;
+                        }
+                        return data;
+                    })
+                    : null,
                 seccion: seccionSeleccionada.id
-                    ? {
-                        id: seccionSeleccionada.id,
-                        nombre: seccionSeleccionada.nombre,
-                    }
-                    : {
-                        id: "hkw1cc4AbTex3jEQlFBR",
-                        nombre: "Seccion Base",
-                      },
+                    ? { id: seccionSeleccionada.id, nombre: seccionSeleccionada.nombre }
+                    : { id: "hkw1cc4AbTex3jEQlFBR", nombre: "Seccion Base" },
             };
 
-            await updateDoc(doc(db, "menu", id), platillo);
-            
-            navigate("/menu_admin");
+            await addDoc(collection(db, "menu"), platillo);
+            alert("Platillo creado correctamente.");
+            resetForm(); // Limpiar el formulario
         } catch (error) {
-            console.error("Error al actualizar el platillo:", error);
-            alert("Hubo un error al actualizar el platillo.");
+            console.error("Error al crear el platillo:", error);
+            alert("Hubo un error al crear el platillo.");
         } finally {
             setIsSubmitting(false);
         }
@@ -375,7 +394,6 @@ function EdicionMenuAdmin() {
                         ))}
                     </div>
 
-
                     <div style={{ marginBottom: "15px" }}>
                         <label>Extras:</label>
                         {listaMenu.map((platillo) => (
@@ -386,38 +404,40 @@ function EdicionMenuAdmin() {
                                         checked={extrasSeleccionados.some((ext) => ext.id === platillo.id)}
                                         onChange={() => handleCheckboxChangeExtras(platillo)}
                                     />
-                                    {platillo.nombre} :
+                                    {platillo.nombre}
                                 </label>
                                 {extrasSeleccionados.some((ext) => ext.id === platillo.id) && (
                                     <>
                                         <br />
-                                        Costo
-                                        <input
-                                            type="number"
-                                            placeholder="Costo"
-                                            value={
-                                                extrasSeleccionados.find((ext) => ext.id === platillo.id)?.costo
-                                            }
-                                            onChange={(e) => handleCostoChangeExtras(platillo.id, e.target.value)}
-                                            min="0"
-                                            required
-                                            style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
-                                        />
-                                        El platillo es un extra?
                                         <select
                                             value={extrasSeleccionados.find((ext) => ext.id === platillo.id)?.extra ? "true" : "false"}
                                             onChange={(e) => handleExtraChange(platillo.id, e.target.value)}
-                                            required
                                             style={{ width: "100%", padding: "8px" }}
                                         >
-                                            <option value="true">Sí</option>
-                                            <option value="false">No</option>
+                                            <option value="true">Extra</option>
+                                            <option value="false">Complemento</option>
                                         </select>
+                                        {/* Mostrar campo de costo solo si es extra */}
+                                        {extrasSeleccionados.find((ext) => ext.id === platillo.id)?.extra && (
+                                            <>
+                                                <label>Costo:</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Costo"
+                                                    value={extrasSeleccionados.find((ext) => ext.id === platillo.id)?.costo}
+                                                    onChange={(e) => handleCostoChangeExtras(platillo.id, e.target.value)}
+                                                    min="0"
+                                                    required // Solo requerido para extras
+                                                    style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
+                                                />
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </div>
                         ))}
                     </div>
+
                     <button type="submit" disabled={isSubmitting}>
                         {isSubmitting ? "Actualizando..." : "Actualizar Platillo"}
                     </button>
