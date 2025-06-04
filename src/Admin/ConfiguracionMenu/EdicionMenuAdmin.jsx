@@ -241,6 +241,22 @@ function EdicionMenuAdmin() {
 
         setIsSubmitting(true);
 
+        let costeNeto = 0;
+
+        ingredientesSeleccionados.forEach((ing) => {
+            const ingredienteCompleto = listaIngredientes.find((item) => item.id === ing.id);
+            if (!ingredienteCompleto) return;
+
+            const costoUnitario = ingredienteCompleto.costo || 0;
+            const esPorKilo = ingredienteCompleto.ingreso === "KG";
+            const cantidad = ing.cantidad;
+
+            // Si es por kilo, asumimos que el costo es por kilo y la cantidad está en gramos → convertir a kilos
+            const cantidadUsada = esPorKilo ? cantidad / 1000 : cantidad;
+
+            costeNeto += cantidadUsada * costoUnitario;
+        });
+
         try {
             // Subir imagen y crear el platillo (código existente)
             let downloadUrl = file ? await subirImagen(file) : urlImagenBlanco;
@@ -275,14 +291,15 @@ function EdicionMenuAdmin() {
                 seccion: seccionSeleccionada.id
                     ? { id: seccionSeleccionada.id, nombre: seccionSeleccionada.nombre }
                     : { id: "hkw1cc4AbTex3jEQlFBR", nombre: "Seccion Base" },
+                costeNeto: parseFloat(costeNeto.toFixed(2))
+
             };
 
-            await addDoc(collection(db, "menu"), platillo);
-            alert("Platillo creado correctamente.");
-            resetForm(); // Limpiar el formulario
+            await updateDoc(doc(db, "menu", id), platillo); 
+            navigate("/menu_admin");
         } catch (error) {
-            console.error("Error al crear el platillo:", error);
-            alert("Hubo un error al crear el platillo.");
+            console.error("Error al actualizar el platillo:", error);
+            alert("Hubo un error al actualizar el platillo.");
         } finally {
             setIsSubmitting(false);
         }

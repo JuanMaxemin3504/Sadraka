@@ -264,7 +264,8 @@ function MenuMesero() {
           prioridad: platillo.prioridad,
           completado: false,
           esPromocion: true,
-          idPromocion: promocion.id
+          idPromocion: promocion.id,
+          costeNeto: platillo.costeNeto,
         }))
       );
 
@@ -306,16 +307,14 @@ function MenuMesero() {
 
   const handleSeleccionarPlatilloPromociones = async (platilloId) => {
     const tipo = promocionSeleccionada.tipo;
-    if (tipo == 1) {
-      if (platillosPromocion.length > 2) {
-        alert("Solo se pueden elegir 3 platillos como máximo");
-        return;
-      }
-    } else {
-      if (platillosPromocion.length > 1) {
-        alert("Solo se pueden elegir 2 platillos como máximo");
-        return;
-      }
+
+    // Corregir las condiciones de límite
+    if (tipo === 1 && platillosPromocion.length >= 3) {
+      alert("Solo se pueden elegir 3 platillos como máximo");
+      return;
+    } else if (tipo === 0 && platillosPromocion.length >= 2) {
+      alert("Solo se pueden elegir 2 platillos como máximo");
+      return;
     }
 
     try {
@@ -323,26 +322,19 @@ function MenuMesero() {
       const platilloDoc = await getDoc(platilloRef);
       if (platilloDoc.exists()) {
         const platilloData = platilloDoc.data();
-
-        // Configurar extras y complementos disponibles
-        const ext = [];
-        const comp = [];
-        if (platilloData.extras) {
-          platilloData.extras.forEach(element => {
-            if (element.extra) {
-              ext.push(element);
-            } else {
-              comp.push(element);
-            }
-          });
-        }
-
-        setExtrasPlatillo(ext);
-        setComplementosPlatillo(comp);
-        setPlatilloSeleccionadoId(platilloId);
-        setPlatilloActual(platilloData);
-        setPersonalizarPlatilloPromo(true);
-
+        setPlatillosPromocion(prev => [...prev, {
+          idPlatillo: platilloId,
+          nombre: platilloData.nombre,
+          precio: platilloData.precio,
+          tiempo: platilloData.tiempo,
+          prioridad: platilloData.prioridad,
+          costeNeto: platilloData.costeNeto,
+          cantidad: 1,
+          ingredientes: [],
+          extras: [],
+          complemento: null,
+          descripcion: ""
+        }]);
       } else {
         alert("Platillo no encontrado");
       }
@@ -377,6 +369,7 @@ function MenuMesero() {
         completado: false,
         tiempo: platilloActual.tiempo,
         prioridad: platilloActual.prioridad,
+        costeNeto: platilloActual.costeNeto,
       };
 
       setPlatillosSeleccionados(prev => [...prev, PlatilloEditado]);
@@ -567,7 +560,8 @@ function MenuMesero() {
               platilloAsociado: platillo.nombre,
               prioridad: platillo.prioridad,
               tiempo: platillo.tiempo,
-              completado: false
+              completado: false,
+              costeNeto: platillo.costeNeto,
             });
             puntos = puntos + parseInt(platillo.prioridad);
           });
@@ -583,7 +577,8 @@ function MenuMesero() {
             platilloAsociado: platillo.nombre,
             prioridad: platillo.prioridad,
             tiempo: platillo.tiempo,
-            completado: false
+            completado: false,
+            costeNeto: platillo.costeNeto,
           });
           puntos = puntos + parseInt(platillo.prioridad);
         }
@@ -1079,7 +1074,7 @@ function MenuMesero() {
                   ))}
                 </select>
               </div>
-            )}  
+            )}
 
             <br />
 

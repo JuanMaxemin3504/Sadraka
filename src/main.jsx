@@ -16,7 +16,7 @@ import MeserosPaginaPrincipal from './Meseros/MenuMesero';
 import CocinaPrincipal from './Cocina/CocinasPrincipal';
 
 { /* Imports Mesa */}
-import MesasPrincipal from './Mesas/MesasPrincipal';
+import MesasPrincipal from './MesasYClientes/MesasPrincipal';
 
 { /* Imports Inventario */}
 import InventarioAdmin from './Admin/ConfiguracionInvetario/InvenarioAdmin';
@@ -49,7 +49,7 @@ import EdicionPromocionesAdmin from './Admin/ConfiguracionPromociones/EdicionPro
 import MenuMesero from './Meseros/MenuMesero';
 import EdicionPedidosMesero from './Meseros/EdicionPedidosMesero';
 
-import CuentaMesas from './Mesas/CuentaMesas';
+import CuentaMesas from './MesasYClientes/CuentaMesas';
 
 
 createRoot(document.getElementById('root')).render(

@@ -72,6 +72,7 @@ function MenuAdmin() {
         const usuarioConfirmo = window.confirm("Estas seguro que quieres eliminar el platillo " + nom);
         if (usuarioConfirmo) {
             try {
+                /*
                 if (url != urlImagenBlanco) {
                     const startIndex = url.indexOf("/o/") + 3;
                     const endIndex = url.indexOf("?alt=media");
@@ -85,6 +86,7 @@ function MenuAdmin() {
                         console.error("Error al eliminar el archivo:", error);
                     }
                 }
+                 */
                 await deleteDoc(doc(db, "menu", productId));
                 alert("Producto eliminado correctamente.");
                 loadProducts();
@@ -150,6 +152,7 @@ function MenuAdmin() {
                             <th style={{ padding: '10px', textAlign: 'center' }}>Imagen</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Nombre y seccion</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Precio</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}>Coste</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Descripción</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Ingredientes</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Complementos y extras</th>
@@ -173,6 +176,7 @@ function MenuAdmin() {
                                 </td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>{product.nombre} <br /> {product.seccion != null ? "Seccion: " + product.seccion.nombre : "Sin seccion"}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>${product.precio}</td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>${product.costeNeto}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>{product.descripcion}</td>
                                 <td style={{ padding: '10px', textAlign: 'center' }}>
                                     {product.ingredientes.map((ingrediente, index) => (

@@ -209,6 +209,23 @@ function CreacionPlatilloMenu() {
 
     setIsSubmitting(true);
 
+    let costeNeto = 0;
+
+    ingredientesSeleccionados.forEach((ing) => {
+      const ingredienteCompleto = listaIngredientes.find((item) => item.id === ing.id);
+      if (!ingredienteCompleto) return;
+
+      const costoUnitario = ingredienteCompleto.costo || 0;
+      const esPorKilo = ingredienteCompleto.ingreso === "KG";
+      const cantidad = ing.cantidad;
+
+      // Si es por kilo, asumimos que el costo es por kilo y la cantidad está en gramos → convertir a kilos
+      const cantidadUsada = esPorKilo ? cantidad / 1000 : cantidad;
+
+      costeNeto += cantidadUsada * costoUnitario;
+    });
+
+
     try {
       // Subir imagen y crear el platillo (código existente)
       let downloadUrl = file ? await subirImagen(file) : urlImagenBlanco;
@@ -229,21 +246,23 @@ function CreacionPlatilloMenu() {
         })),
         extras: extrasSeleccionados.length > 0
           ? extrasSeleccionados.map((ext) => {
-            const data = {
-              id: ext.id,
-              nombre: ext.nombre,
-              extra: ext.extra,
-            };
-            if (ext.extra) {
-              data.costo = parseFloat(ext.costo) || 0;
-            }
-            return data;
-          })
+              const data = {
+                id: ext.id,
+                nombre: ext.nombre,
+                extra: ext.extra,
+              };
+              if (ext.extra) {
+                data.costo = parseFloat(ext.costo) || 0;
+              }
+              return data;
+            })
           : null,
         seccion: seccionSeleccionada.id
           ? { id: seccionSeleccionada.id, nombre: seccionSeleccionada.nombre }
           : { id: "hkw1cc4AbTex3jEQlFBR", nombre: "Seccion Base" },
+        costeNeto: parseFloat(costeNeto.toFixed(2))
       };
+      
 
       await addDoc(collection(db, "menu"), platillo);
       alert("Platillo creado correctamente.");

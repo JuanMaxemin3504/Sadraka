@@ -198,7 +198,8 @@ function EdicionPedidosMesero() {
                     descripcion: descripcion || null,
                     completado: false,
                     esPromocion: true,
-                    idPromocion: promocionSeleccionada.id
+                    idPromocion: promocionSeleccionada.id,
+                    costeNeto: platilloData.costeNeto,
                 };
 
                 setPlatillosPromocion(prev => [...prev, PlatilloEditado]);
@@ -438,6 +439,7 @@ function EdicionPedidosMesero() {
                 completado: false,
                 tiempo: platilloActual.tiempo,
                 prioridad: platilloActual.prioridad,
+                costeNeto: platillo.costeNeto,
             }
             console.log(PlatilloEditado);
             setPlatillosSeleccionados(prev => [...prev, PlatilloEditado]);
@@ -599,7 +601,8 @@ function EdicionPedidosMesero() {
                             nombre: extra.nombre,
                             precio: extra.precio,
                             platilloAsociado: platillo.nombre,
-                            completado: false
+                            completado: false,
+                            costeNeto: platillo.costeNeto,
                         });
                         puntos += parseInt(platillo.prioridad || 0);
                     });
@@ -614,7 +617,8 @@ function EdicionPedidosMesero() {
                         platilloAsociado: platillo.nombre,
                         prioridad: platillo.prioridad,
                         tiempo: platillo.tiempo,
-                        completado: false
+                        completado: false,
+                        costeNeto: platillo.costeNeto,
                     });
                     puntos = puntos + parseInt(platillo.prioridad);
                 }
