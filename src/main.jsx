@@ -17,6 +17,9 @@ import CocinaPrincipal from './Cocina/CocinasPrincipal';
 
 { /* Imports Mesa */}
 import MesasPrincipal from './MesasYClientes/MesasPrincipal';
+import CuentaMesas from './MesasYClientes/CuentaMesas';
+import EdicionPedidosMesa from './MesasYClientes/EdicionPedidosMesa';
+import ClientesPedidos from './MesasYClientes/ClientesPedidos';
 
 { /* Imports Inventario */}
 import InventarioAdmin from './Admin/ConfiguracionInvetario/InvenarioAdmin';
@@ -48,9 +51,6 @@ import EdicionPromocionesAdmin from './Admin/ConfiguracionPromociones/EdicionPro
 { /* Import Mesero */}
 import MenuMesero from './Meseros/MenuMesero';
 import EdicionPedidosMesero from './Meseros/EdicionPedidosMesero';
-
-import CuentaMesas from './MesasYClientes/CuentaMesas';
-
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -93,8 +93,10 @@ createRoot(document.getElementById('root')).render(
         <Route path="/editar_promociones_admin/:id" element={ <EdicionPromocionesAdmin/> } />      
         
         { /* Rutas Mesas */}
-        <Route path="/mesas_principal" element={ <MesasPrincipal/> } />
+        <Route path="/mesas_principal/:mesaId" element={ <MesasPrincipal/> } />
+        <Route path="/editar_pedidos_mesa/:mesaId" element={ <EdicionPedidosMesa/> } />
         <Route path="/cuenta_mesas" element={ <CuentaMesas/> } />
+        <Route path="/pedidos_clientes" element={ <ClientesPedidos/> } />
 
         { /* Rutas Mesero */}
         <Route path="/menu_mesero" element={ <MenuMesero/> } />      

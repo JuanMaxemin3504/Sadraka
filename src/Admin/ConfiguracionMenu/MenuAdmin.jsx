@@ -67,7 +67,6 @@ function MenuAdmin() {
         setSecciones(productsData);
     };
 
-
     const handleDelete = async (productId, url, nom) => {
         const usuarioConfirmo = window.confirm("Estas seguro que quieres eliminar el platillo " + nom);
         if (usuarioConfirmo) {

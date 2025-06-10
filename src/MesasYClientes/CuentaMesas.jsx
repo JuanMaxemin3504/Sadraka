@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, deleteDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Button, Table, Modal, message } from 'antd';
+import { Button, Table, Modal, message, Input } from 'antd';
 import NavBarMeseros from '../Admin/NavBars/NavBarMeseros';
 import '@ant-design/v5-patch-for-react-19';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable'; // ← esta línea importa la extensión y la registra automáticamente
-import { PrecisionManufacturing } from '@mui/icons-material';
 
 const CuentaMesas = () => {
   const [pedidosTerminados, setPedidosTerminados] = useState([]);
@@ -14,10 +13,24 @@ const CuentaMesas = () => {
   const [selectedMesa, setSelectedMesa] = useState(null);
   const [detalleMesa, setDetalleMesa] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [codigoModalVisible, setCodigoModalVisible] = useState(false);
+  const [nombresMesas, setNombresMesas] = useState({});
+  const [codigo, setCodigo] = useState('');
+  const [codigoCorrecto, setCodigoCorrecto] = useState('');
 
   useEffect(() => {
-    const cargarPedidosTerminados = async () => {
+    const cargarDatos = async () => {
       try {
+        // Cargar nombres de las mesas
+        const mesasRef = collection(db, "mesas");
+        const mesasSnapshot = await getDocs(mesasRef);
+        const nombres = {};
+        mesasSnapshot.forEach(doc => {
+          nombres[doc.id] = doc.data().nombre || `Mesa ${doc.id}`;
+        });
+        setNombresMesas(nombres);
+
+        // Cargar pedidos terminados
         const pedidosRef = collection(db, "ordenes");
         const q = query(pedidosRef, where("estado", "==", "completado"));
         const querySnapshot = await getDocs(q);
@@ -29,23 +42,31 @@ const CuentaMesas = () => {
 
         setPedidosTerminados(pedidosData);
 
+        // Obtener IDs únicos de mesas con pedidos
         const mesasUnicas = [...new Set(pedidosData.map(pedido => pedido.mesaId))];
         setMesasConPedidos(mesasUnicas);
       } catch (error) {
-        console.error("Error cargando pedidos:", error);
-        message.error("Error al cargar pedidos terminados");
+        console.error("Error cargando datos:", error);
+        message.error("Error al cargar datos");
       }
     };
 
-    cargarPedidosTerminados();
+    cargarDatos();
   }, []);
 
   const cargarDetalleMesa = async (mesaId) => {
     const pedidosMesa = pedidosTerminados.filter(pedido => pedido.mesaId === mesaId);
-    total = 0;
     setDetalleMesa(pedidosMesa);
     setSelectedMesa(mesaId);
     setModalVisible(true);
+    try {
+      const mesaRef = doc(db, "ordenes", mesaId); // Cambiado de mesa a mesaId
+      const mesaDoc = await getDoc(mesaRef);
+      const mesaData = mesaDoc.data();
+      setCodigoCorrecto(mesaData.codigoPedido);
+    } catch (error) { // Añadido parámetro error
+      console.error(error);
+    }
   };
 
   const generarPDF = () => {
@@ -59,7 +80,7 @@ const CuentaMesas = () => {
     // Estilo para el encabezado
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Ticket de Venta - Mesa ${selectedMesa}`, anchoPagina / 2, y, { align: 'center' });
+    doc.text(`Ticket de Venta - ${nombresMesas[selectedMesa] || `Mesa ${selectedMesa}`}`, anchoPagina / 2, y, { align: 'center' });
     y += 10;
 
     // Fecha
@@ -158,13 +179,44 @@ const CuentaMesas = () => {
     doc.text('¡Gracias por su preferencia!', anchoPagina / 2, y, { align: 'center' });
 
     // Guardar el PDF
-    doc.save(`Ticket_Mesa_${selectedMesa}.pdf`);
+    doc.save(`Ticket_${nombresMesas[selectedMesa] || `Mesa_${selectedMesa}`}.pdf`);
+  };
+
+  const verificarCodigo = async () => {
+    if (codigo.length !== 4 || !/^\d+$/.test(codigo)) {
+      message.warning('El código debe ser de 4 dígitos numéricos');
+      return false;
+    }
+    return codigo === codigoCorrecto;
+  };
+
+  const handleCerrarConCodigo = async () => {
+    if (!verificarCodigo()) {
+      message.error('Código incorrecto');
+      return;
+    }
+    setCodigoModalVisible(false);
+    await procesarCierreCuenta();
   };
 
   const cerrarCuenta = async () => {
+    // Verificar si algún pedido es para llevar
+    const tienePedidosParaLlevar = detalleMesa.some(pedido => pedido.llevar);
+    if (tienePedidosParaLlevar) {
+      setCodigoModalVisible(true);
+    } else {
+      Modal.confirm({
+        title: `¿Cerrar cuenta de ${nombresMesas[selectedMesa] || `Mesa ${selectedMesa}`}?`,
+        content: 'Esto eliminará los pedidos completados y los pasará a ventas.',
+        onOk: procesarCierreCuenta
+      });
+    }
+  };
+
+  const procesarCierreCuenta = async () => {
     try {
       generarPDF();
-
+  
       const pedidosRef = collection(db, "ordenes");
       const q = query(
         pedidosRef,
@@ -172,12 +224,14 @@ const CuentaMesas = () => {
         where("estado", "==", "completado")
       );
       const querySnapshot = await getDocs(q);
-
+  
       const ventasData = {
         mesaId: selectedMesa,
+        nombreMesa: nombresMesas[selectedMesa] || `Mesa ${selectedMesa}`,
         fecha: serverTimestamp(),
         pedidos: [],
-        total: 0
+        total: 0,
+        paraLlevar: detalleMesa.some(pedido => pedido.llevar)
       };
 
       const batch = [];
@@ -186,32 +240,114 @@ const CuentaMesas = () => {
         ventasData.pedidos.push({
           platillos: pedido.platillos || [],
           promociones: pedido.promociones || [],
-          total: pedido.total || 0
+          total: pedido.total || 0,
+          llevar: pedido.llevar || false
         });
         ventasData.total += pedido.total || 0;
-
+  
         batch.push(deleteDoc(docSnapshot.ref));
       });
-
+    
+      // Calcular y restar ingredientes del inventario
+      const ingredientesTotales = {};
+  
+      // Procesar platillos normales
+      for (const pedido of ventasData.pedidos) {
+        // Platillos individuales
+        for (const platillo of pedido.platillos) {
+          const platilloRef = doc(db, "menu", platillo.idPlatillo);
+          const platilloSnap = await getDoc(platilloRef);
+  
+          if (!platilloSnap.exists()) continue;
+  
+          const dataPlatillo = platilloSnap.data();
+          const cantidadPedida = platillo.cantidad || 1;
+  
+          if (dataPlatillo.ingredientes && Array.isArray(dataPlatillo.ingredientes)) {
+            for (const ingrediente of dataPlatillo.ingredientes) {
+              const ingredienteId = ingrediente.id;
+              const cantidadNecesaria = ingrediente.cantidad * cantidadPedida;
+  
+              if (!ingredientesTotales[ingredienteId]) {
+                ingredientesTotales[ingredienteId] = 0;
+              }
+  
+              ingredientesTotales[ingredienteId] += cantidadNecesaria;
+            }
+          }
+        }
+  
+        // Platillos dentro de promociones
+        for (const promo of pedido.promociones) {
+          for (const platillo of promo.platillos || []) {
+            const platilloRef = doc(db, "menu", platillo.idPlatillo);
+            const platilloSnap = await getDoc(platilloRef);
+  
+            if (!platilloSnap.exists()) continue;
+  
+            const dataPlatillo = platilloSnap.data();
+            const cantidadPedida = platillo.cantidad || 1;
+  
+            if (dataPlatillo.ingredientes && Array.isArray(dataPlatillo.ingredientes)) {
+              for (const ingrediente of dataPlatillo.ingredientes) {
+                const ingredienteId = ingrediente.id;
+                const cantidadNecesaria = ingrediente.cantidad * cantidadPedida;
+  
+                if (!ingredientesTotales[ingredienteId]) {
+                  ingredientesTotales[ingredienteId] = 0;
+                }
+  
+                ingredientesTotales[ingredienteId] += cantidadNecesaria;
+              }
+            }
+          }
+        }
+      }
+  
+      // Actualizar inventario
+      const batchInventario = writeBatch(db);
+  
+      for (const [ingredienteId, cantidadADescontar] of Object.entries(ingredientesTotales)) {
+        const refIngrediente = doc(db, "products", ingredienteId);
+        const snapIngrediente = await getDoc(refIngrediente);
+  
+        if (snapIngrediente.exists()) {
+          const stockActual = snapIngrediente.data().cantidad || 0;
+          let cantidadADescontarReal = cantidadADescontar;
+          if(snapIngrediente.data().ingreso == "KG"){
+            cantidadADescontarReal = cantidadADescontarReal/1000;
+          }
+          const nuevoStock = stockActual - cantidadADescontarReal;
+                    
+          batchInventario.update(refIngrediente, { cantidad: nuevoStock });
+        }
+      }
+  
+      await batchInventario.commit();
+      
+      // Guardar venta y eliminar pedidos completados
       await addDoc(collection(db, "ventas"), ventasData);
       await Promise.all(batch);
-
+  
       setPedidosTerminados(prev => prev.filter(p => p.mesaId !== selectedMesa));
       setMesasConPedidos(prev => prev.filter(m => m !== selectedMesa));
-
-      message.success(`Cuenta de mesa ${selectedMesa} cerrada correctamente`);
+  
+      message.success(`Cuenta de ${nombresMesas[selectedMesa] || `Mesa ${selectedMesa}`} cerrada correctamente`);
       setModalVisible(false);
+      setCodigo('');
     } catch (error) {
       console.error("Error cerrando cuenta:", error);
       message.error("Error al cerrar la cuenta");
     }
   };
+  
 
   const columnsMesas = [
     {
       title: 'Mesa',
       dataIndex: 'mesa',
       key: 'mesa',
+      render: (mesaId) => nombresMesas[mesaId] || `Mesa ${mesaId}`, // Mostrar nombre de la mesa
     },
     {
       title: 'Acciones',
@@ -281,7 +417,7 @@ const CuentaMesas = () => {
       />
 
       <Modal
-        title={`Detalle de Mesa ${selectedMesa}`}
+        title={`Detalle de ${nombresMesas[selectedMesa] || `Mesa ${selectedMesa}`}`}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={[
@@ -290,7 +426,7 @@ const CuentaMesas = () => {
             type="primary"
             onClick={() =>
               Modal.confirm({
-                title: `¿Cerrar cuenta de mesa ${selectedMesa}?`,
+                title: `¿Cerrar cuenta de ${nombresMesas[selectedMesa] || `Mesa ${selectedMesa}`}?`,
                 content: 'Esto eliminará los pedidos completados y los pasará a ventas.',
                 onOk: cerrarCuenta
               })
@@ -301,6 +437,7 @@ const CuentaMesas = () => {
         ]}
         width={800}
       >
+
         <h2>Ticket de Venta - Mesa {selectedMesa}</h2>
         <p>Fecha: {new Date().toLocaleString()}</p>
 
@@ -344,6 +481,32 @@ const CuentaMesas = () => {
           </h3>
         </div>
       </Modal>
+
+      <Modal
+        title="Verificación para pedidos para llevar"
+        open={codigoModalVisible}
+        onOk={handleCerrarConCodigo}
+        onCancel={() => {
+          setCodigoModalVisible(false);
+          setCodigo('');
+        }}
+        okText="Confirmar"
+        cancelText="Cancelar"
+      >
+        <p>Ingrese el código de 4 dígitos para confirmar el cierre:</p>
+        <Input
+          placeholder="Código de 4 dígitos"
+          maxLength={4}
+          value={codigo}
+          onChange={(e) => {
+            // Solo permitir números
+            const value = e.target.value.replace(/\D/g, '');
+            setCodigo(value);
+          }}
+          style={{ marginTop: '10px' }}
+        />
+      </Modal>
+
     </div>
   );
 };

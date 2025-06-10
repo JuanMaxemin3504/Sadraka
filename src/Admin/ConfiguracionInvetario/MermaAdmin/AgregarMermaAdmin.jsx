@@ -82,7 +82,8 @@ function AgregarMermaAdmin() {
                 creacion: serverTimestamp(),
                 edicion: serverTimestamp(),
                 idReferente: merma.id,
-            };
+                aplicada: false, // 🔹 Marca la merma como no aplicada
+              };              
 
             const docRef = await addDoc(collection(db, "merma"), Merma);
             console.log("Merma creada con ID:", docRef.id);

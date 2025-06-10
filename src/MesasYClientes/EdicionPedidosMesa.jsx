@@ -2,9 +2,15 @@ import React, { useEffect, useState } from "react";
 import NavBarMeseros from '../Admin/NavBars/NavBarMeseros';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc, serverTimestamp, orderBy, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { AppBar, Toolbar, Button } from '@mui/material'
 
-function EdicionPedidosMesero() {
-    const [mesas, setMesas] = useState([]);
+function EdicionPedidosMesa() {
+    const { mesaId } = useParams();
+    const [mesa, setMesa] = useState({
+        id: null,
+        nombre: "Cargando..."
+    });
     const [secciones, setSecciones] = useState([]);
     const [platillos, setPlatillos] = useState([]);
     const [platilloEdicion, setPlatilloEdicion] = useState(false);
@@ -18,10 +24,6 @@ function EdicionPedidosMesero() {
     const [complementoSeleccionado, setComplementoSeleccionado] = useState(null);
     const [platilloSeleccionadoId, setPlatilloSeleccionadoId] = useState(null)
     const [cantidad, setCantidad] = useState(1);
-    const [mesaSeleccionada, setMesaSeleccionada] = useState({
-        id: "",
-        nombre: "Mesa sin seleccionar",
-    });
     const [seccionSeleccionada, setSeccionSeleccionada] = useState(null);
     const [descripcion, setDescripcion] = useState("");
     const [editandoIndex, setEditandoIndex] = useState(null);
@@ -42,11 +44,41 @@ function EdicionPedidosMesero() {
 
 
     useEffect(() => {
-        loadMesas();
+        loadMesa(mesaId);
         loadSecciones();
         loadPlatillos();
         loadPromociones();
-    }, []);
+        cargarPedidosPendientes(mesaId);
+    }, [mesaId]);
+
+
+
+    const loadMesa = async (id) => {
+        if (id) {
+            try {
+                const mesaRef = doc(db, "users", id);
+                const mesaDoc = await getDoc(mesaRef);
+                if (mesaDoc.exists()) {
+                    setMesa({
+                        id: id,
+                        nombre: mesaDoc.data().username
+                    });
+                } else {
+                    console.error("Mesa no encontrada");
+                    setMesa({
+                        id: id,
+                        nombre: "Mesa no encontrada"
+                    });
+                }
+            } catch (error) {
+                console.error("Error cargando datos de la mesa:", error);
+                setMesa({
+                    id: id,
+                    nombre: "Error cargando mesa"
+                });
+            }
+        }
+    };
 
     const loadPromociones = async () => {
         try {
@@ -331,30 +363,6 @@ function EdicionPedidosMesero() {
         setCambioPedido(true);
     };
 
-    const handleMesaChange = async (event) => {
-        const idSeleccionado = event.target.value;
-
-        if (!idSeleccionado) {
-            setMesaSeleccionada({ id: "", nombre: "Mesa sin seleccionar" });
-            setPedidosPendientes([]);
-            setPedidoSeleccionado(null);
-            setPlatillosSeleccionados([]);
-            return;
-        }
-
-        const mesaElegida = mesas.find((mesa) => mesa.id === idSeleccionado);
-
-        if (mesaElegida) {
-            setMesaSeleccionada({
-                id: mesaElegida.id,
-                nombre: mesaElegida.username,
-            });
-            await cargarPedidosPendientes(mesaElegida.id);
-        } else {
-            console.log("Error al cambiar la mesa");
-        }
-    };
-
     const handleComplementoChange = (event) => {
         const idSeleccionado = event.target.value;
 
@@ -452,20 +460,6 @@ function EdicionPedidosMesero() {
         setPlatillosSeleccionados(prev => prev.filter((_, i) => i !== index));
     };
 
-    const loadMesas = async () => {
-        try {
-            const q = query(collection(db, "users"), where("tipo", "==", 2));
-            const querySnapshot = await getDocs(q);
-            const mesasData = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setMesas(mesasData);
-        } catch (error) {
-            console.error("Error obteniendo las mesas:", error);
-        }
-    };
-
     const loadSecciones = async () => {
         try {
             const productosRef = collection(db, "secciones");
@@ -486,7 +480,8 @@ function EdicionPedidosMesero() {
         } catch (error) {
             console.error("Error obteniendo las secciones:", error);
         }
-    }
+    };
+
     const loadPlatillos = async () => {
         try {
             const q = query(collection(db, "menu"));
@@ -592,7 +587,7 @@ function EdicionPedidosMesero() {
 
     const enviarPedido = async () => {
         setEnviandoPedido(true);
-        if (!mesaSeleccionada.id) {
+        if (!mesa.id) {
             alert("Por favor selecciona una mesa primero");
             return;
         }
@@ -659,8 +654,8 @@ function EdicionPedidosMesero() {
 
             const pedidoRef = collection(db, "ordenes");
             const nuevoPedido = {
-                mesaId: mesaSeleccionada.id,
-                mesaNombre: mesaSeleccionada.nombre,
+                mesaId: mesa.id,
+                mesaNombre: mesa.nombre,
                 platillos: [...platillosSeleccionados],
                 promociones: carritoPromociones.length > 0 ? [...carritoPromociones] : null,
                 extrasYcomplementos: todosExtrasComplementos.length > 0 ? todosExtrasComplementos : null,
@@ -684,7 +679,7 @@ function EdicionPedidosMesero() {
             setPlatillosSeleccionados([]);
             setCarritoPromociones([]);
             setPedidoSeleccionado(null);
-            await cargarPedidosPendientes(mesaSeleccionada.id);
+            await cargarPedidosPendientes(mesa.id);
         } catch (error) {
             console.error("Error procesando el pedido: ", error);
             alert("Error al procesar el pedido");
@@ -700,34 +695,41 @@ function EdicionPedidosMesero() {
 
     return (
         <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
-            <NavBarMeseros />
+            <div>
+                <AppBar position="static">
+                    <Toolbar style={{ justifyContent: "center" }}>
+                        <Button
+                            color="inherit"
+                            component={Link}
+                            to={`/mesas_principal/${mesaId}`}  // Añade mesaId a la ruta
+                        >
+                            Menu
+                        </Button>
+                        <Button
+                            color="inherit"
+                            component={Link}
+                            to={`/editar_pedidos_mesa/${mesaId}`}  // Añade mesaId a la ruta
+                        >
+                            Editar pedidos
+                        </Button>
+                    </Toolbar>
+                </AppBar>
+            </div>
 
             <div style={{ padding: "20px", width: "80vw", margin: "0 auto" }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
-                    <h3>Mesa: {""}
-                        <select
-                            onChange={handleMesaChange}
-                            value={mesaSeleccionada.id}
-                            style={{ padding: "8px" }}
-                        >
-                            <option value="">Sin mesa</option>
-                            {mesas.map((mesa) => (
-                                <option key={mesa.id} value={mesa.id}>
-                                    {mesa.username}
-                                </option>
-                            ))}
-                        </select>
+                    <h3>Mesa: {mesa.nombre}
 
                         <button
                             onClick={enviarPedido}
-                            disabled={(platillosSeleccionados.length === 0 && carritoPromociones.length === 0) || !mesaSeleccionada.id || enviandoPedido}
+                            disabled={(platillosSeleccionados.length === 0 && carritoPromociones.length === 0) || !mesa.id || enviandoPedido}
                             style={{
                                 padding: '8px 15px',
-                                backgroundColor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesaSeleccionada.id ? '#28a745' : '#cccccc',
+                                backgroundColor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesa.id ? '#28a745' : '#cccccc',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '4px',
-                                cursor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesaSeleccionada.id ? 'pointer' : 'not-allowed',
+                                cursor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesa.id ? 'pointer' : 'not-allowed',
                                 margin: '10px'
                             }}
                         >
@@ -736,7 +738,7 @@ function EdicionPedidosMesero() {
                     </h3>
                 </div>
 
-                {mesaSeleccionada.id && (
+                {mesa.id && (
                     <div style={{ marginBottom: '20px' }}>
                         <h3>Pedidos pendientes para esta mesa:</h3>
                         {cargandoPedidos ? (
@@ -785,7 +787,7 @@ function EdicionPedidosMesero() {
                 )}
 
                 {/* Matriz de secciones (6 columnas) */}
-                {!seccionSeleccionada && mesaSeleccionada.id && pedidoSeleccionado && (
+                {!seccionSeleccionada && mesa.id && pedidoSeleccionado && (
                     <div style={{ marginBottom: "30px" }}>
                         <h3>Seleccione una sección:</h3>
                         {seccionesMatriz.map((fila, index) => (
@@ -1397,4 +1399,4 @@ function EdicionPedidosMesero() {
     )
 }
 
-export default EdicionPedidosMesero;
+export default EdicionPedidosMesa;

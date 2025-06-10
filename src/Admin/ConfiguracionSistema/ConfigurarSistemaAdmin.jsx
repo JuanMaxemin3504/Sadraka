@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db, storage } from "../../firebase";
-import { collection, query, getDocs, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
-import { Link } from "react-router-dom";
-import { deleteObject, ref } from "firebase/storage";
+import {doc, updateDoc, getDoc } from "firebase/firestore";
 import NavBarSistemaAdmin from "../NavBars/NavBarSistemaAdmin";
 
 const ConfigurarSistemaAdmin = () => {
@@ -10,13 +8,11 @@ const ConfigurarSistemaAdmin = () => {
     useEffect(() => {
         getOrdenamientoMetod();
         getPedidoParallevar();
-        getPedidoParaDomicilio();
         getAutopedidoCliente();
     }, []);
 
     const [metodo, setMetodo] = useState(false);
     const [pedidoParaLlevar, setPedidoParaLlevar] = useState(false);
-    const [pedidoParaDomicilio, setPedidoParaDomicilio] = useState(false);
     const [autopedidoCliente, setAutopedidoCliente] = useState(false);
 
 
@@ -37,17 +33,6 @@ const ConfigurarSistemaAdmin = () => {
             const InformacionDoc = await getDoc(InformacionRef);
             const InformacionData = InformacionDoc.data();
             setPedidoParaLlevar(InformacionData.activado);
-        } catch (error) {
-            console.error("Error obteniendo el metodo de ordenamiento: ", error);
-        }
-    };
-
-    const getPedidoParaDomicilio = async () => {
-        try {
-            const InformacionRef = doc(db, "informacion", "PedidoParaDomicilio");
-            const InformacionDoc = await getDoc(InformacionRef);
-            const InformacionData = InformacionDoc.data();
-            setPedidoParaDomicilio(InformacionData.activado);
         } catch (error) {
             console.error("Error obteniendo el metodo de ordenamiento: ", error);
         }
@@ -87,25 +72,6 @@ const ConfigurarSistemaAdmin = () => {
         try {
             const pedidoRef = doc(db, "informacion", "PedidoParaLlevar");
             if (pedidoParaLlevar == true) {
-                await updateDoc(pedidoRef, {
-                    activado: false
-                });
-            } else {
-                await updateDoc(pedidoRef, {
-                    activado: true
-                });
-            }
-            window.location.reload();
-        } catch (error) {
-            console.error("Error al actualizar el producto:", error);
-            alert("Hubo un error al actualizar el producto.");
-        }
-    }
-
-    const handlePedidoParaDomicilio = async () => {
-        try {
-            const pedidoRef = doc(db, "informacion", "PedidoParaDomicilio");
-            if (pedidoParaDomicilio == true) {
                 await updateDoc(pedidoRef, {
                     activado: false
                 });
@@ -177,21 +143,6 @@ const ConfigurarSistemaAdmin = () => {
                         >
                             Pedido para llevar: <br />
                             {pedidoParaLlevar ? " Activado" : " Desactivado"}
-                        </button>
-
-                        <button
-                            onClick={() => handlePedidoParaDomicilio()}
-                            style={{
-                                backgroundColor: '#007bff',
-                                color: 'white',
-                                border: 'none',
-                                padding: '5px 10px',
-                                borderRadius: '5px',
-                                marginLeft: '20px',
-                            }}
-                        >
-                            Pedido a domicilio: <br />
-                            {pedidoParaDomicilio ? " Activado" : " Desactivado"}
                         </button>
 
                         <button

@@ -22,13 +22,14 @@ function EdicionMenuAdmin() {
     const [secciones, setSecciones] = useState([]);
     const [tiempo, setTiempo] = useState("");
     const [prioridad, setPrioriad] = useState(1);
+    const [vistaActual, setVistaActual] = useState(1); // 1 = info, 2 = ingredientes
 
     const [seccionSeleccionada, setSeccionSeleccionada] = useState({
         id: "",
         nombre: "",
     });
 
-    const navigate = useNavigate(); // Inicializa useNavigate
+    const navigate = useNavigate();
 
     useEffect(() => {
         ObtenerInventario();
@@ -60,7 +61,6 @@ function EdicionMenuAdmin() {
         }
     };
 
-
     const ObternerSecciones = async () => {
         try {
             const productosRef = collection(db, "secciones");
@@ -88,7 +88,11 @@ function EdicionMenuAdmin() {
         } else {
             setIngredientesSeleccionados((prev) => [
                 ...prev,
-                { ...ingrediente, cantidad: 1 },
+                { 
+                    ...ingrediente, 
+                    cantidad: 1,
+                    merma: ingrediente.merma || 0 // Incluimos merma con valor inicial 0
+                },
             ]);
         }
     };
@@ -105,8 +109,8 @@ function EdicionMenuAdmin() {
                 ...prev,
                 {
                     ...extra,
-                    costo: 0, // Inicializamos en 0 (se ajustará después si es extra)
-                    extra: true // Por defecto es extra (el usuario puede cambiarlo a complemento)
+                    costo: 0,
+                    extra: true
                 },
             ]);
         }
@@ -168,9 +172,19 @@ function EdicionMenuAdmin() {
         } else {
             console.log("Error al cambiar la sección");
         }
+    };
 
-        console.log(seccionSeleccionada)
-
+    const handleMermaChange = (id, merma) => {
+        const nuevaMerma = parseFloat(merma);
+        if (nuevaMerma < 0 || nuevaMerma > 100) {
+            alert("La merma debe estar entre 0 y 100%");
+            return;
+        }
+        setIngredientesSeleccionados((prev) =>
+            prev.map((ing) =>
+                ing.id === id ? { ...ing, merma: nuevaMerma } : ing
+            )
+        );
     };
 
     const CargarPlatillo = async () => {
@@ -182,7 +196,14 @@ function EdicionMenuAdmin() {
                 setNombre(platilloData.nombre);
                 setPrecio(platilloData.precio.toString());
                 setDescripcion(platilloData.descripcion);
-                setIngredientesSeleccionados(platilloData.ingredientes);
+                
+                // Asegurarnos que cada ingrediente tenga su merma (o 0 si no existe)
+                const ingredientesConMerma = platilloData.ingredientes.map(ing => ({
+                    ...ing,
+                    merma: ing.merma || 0
+                }));
+                
+                setIngredientesSeleccionados(ingredientesConMerma);
                 setExtrasSeleccionados(platilloData.extras || []);
                 setPrioriad(platilloData.prioridad);
                 setTiempo(platilloData.tiempo);
@@ -190,7 +211,7 @@ function EdicionMenuAdmin() {
                 setSeccionSeleccionada({
                     id: platilloData.seccion.id,
                     nombre: platilloData.seccion.nombre,
-                })
+                });
             } else {
                 alert("Platillo no encontrado");
             }
@@ -217,13 +238,11 @@ function EdicionMenuAdmin() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validación de campos obligatorios
         if (!nombre || !precio || !descripcion || ingredientesSeleccionados.length === 0 || !tiempo) {
             alert("Por favor, completa todos los campos y selecciona al menos un ingrediente.");
             return;
         }
 
-        // Validar que los extras de tipo "extra" tengan costo > 0
         const extraSinCosto = extrasSeleccionados.some(
             (ext) => ext.extra === true && ext.costo <= 0
         );
@@ -233,7 +252,6 @@ function EdicionMenuAdmin() {
             return;
         }
 
-        // Resto de validaciones (tiempo, etc.)
         if (parseInt(tiempo) > 45 || parseInt(tiempo) < 1) {
             alert("El tiempo debe estar entre 1 y 45 minutos.");
             return;
@@ -250,15 +268,18 @@ function EdicionMenuAdmin() {
             const costoUnitario = ingredienteCompleto.costo || 0;
             const esPorKilo = ingredienteCompleto.ingreso === "KG";
             const cantidad = ing.cantidad;
+            const merma = ing.merma || 0;
 
-            // Si es por kilo, asumimos que el costo es por kilo y la cantidad está en gramos → convertir a kilos
-            const cantidadUsada = esPorKilo ? cantidad / 1000 : cantidad;
+            // Ajustamos la cantidad por la merma
+            const cantidadAjustada = cantidad / (1 - (merma / 100));
+
+            // Si es por kilo, convertimos a kilos
+            const cantidadUsada = esPorKilo ? cantidadAjustada / 1000 : cantidadAjustada;
 
             costeNeto += cantidadUsada * costoUnitario;
         });
 
         try {
-            // Subir imagen y crear el platillo (código existente)
             let downloadUrl = file ? await subirImagen(file) : urlImagenBlanco;
 
             const platillo = {
@@ -274,6 +295,7 @@ function EdicionMenuAdmin() {
                     nombre: ing.nombre,
                     cantidad: ing.cantidad,
                     unitario: ing.ingreso !== "KG",
+                    merma: ing.merma || 0 // Incluimos la merma en cada ingrediente
                 })),
                 extras: extrasSeleccionados.length > 0
                     ? extrasSeleccionados.map((ext) => {
@@ -292,7 +314,6 @@ function EdicionMenuAdmin() {
                     ? { id: seccionSeleccionada.id, nombre: seccionSeleccionada.nombre }
                     : { id: "hkw1cc4AbTex3jEQlFBR", nombre: "Seccion Base" },
                 costeNeto: parseFloat(costeNeto.toFixed(2))
-
             };
 
             await updateDoc(doc(db, "menu", id), platillo); 
@@ -305,160 +326,134 @@ function EdicionMenuAdmin() {
         }
     };
 
+    const subirImagen = async (file) => {
+        const storageRef = ref(storage, `platillos/${file.name}`);
+        await uploadBytes(storageRef, file);
+        return await getDownloadURL(storageRef);
+    };
+
     return (
         <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
             <NavBarMenuAdmin />
-            <div style={{ padding: "20px", maxWidth: "400px", margin: "0 auto" }}>
+            <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
                 <h2>Editar Platillo</h2>
-                <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: "15px" }}>
-                        <label>Nombre del Platillo:</label>
-                        <input
-                            type="text"
-                            value={nombre}
-                            onChange={(e) => setNombre(e.target.value)}
-                            required
-                            style={{ width: "100%", padding: "8px" }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: "15px" }}>
-                        <label>Precio:</label>
-                        <input
-                            type="number"
-                            value={precio}
-                            onChange={(e) => setPrecio(e.target.value)}
-                            step="0.01"
-                            required
-                            style={{ width: "100%", padding: "8px" }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: "15px" }}>
-                        <label>Descripción:</label>
-                        <textarea
-                            value={descripcion}
-                            onChange={(e) => setDescripcion(e.target.value)}
-                            required
-                            style={{ width: "100%", padding: "8px" }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: "15px" }}>
-                        <label>Imagen del Platillo:</label>
-                        <input
-                            type="file"
-                            onChange={handleFileChange}
-                            style={{ width: "100%", padding: "8px" }}
-                        />
-                    </div>
-
-                    <label>Selecciona una sección</label> <br />
-                    <select onChange={handleSeccionChange} value={seccionSeleccionada.id} style={{ marginBottom: "15px" }}>
-                        <option value="">Sin seccion</option>
-                        {secciones.map((seccion) => (
-                            <option key={seccion.id} value={seccion.id}>
-                                {seccion.nombre}
-                            </option>
-                        ))}
-                    </select>
-
-                    <div style={{ marginBottom: "15px" }}>
-                        <label>Tiempo</label>
-                        <input
-                            type="number"
-                            value={tiempo}
-                            onChange={(e) => setTiempo(e.target.value)}
-                            required
-                            style={{ width: "100%", padding: "8px" }}
-                        />
-                    </div>
-
-                    <label>Prioridad</label> <br />
-                    <select onChange={(e) => setPrioriad(e.target.value)} value={prioridad} style={{ marginBottom: "15px" }}>
-                        <option value="1">Prioridad alta</option>
-                        <option value="2">Prioridad media</option>
-                        <option value="3">Prioridad baja</option>
-                    </select>
-
-                    <div style={{ marginBottom: "15px" }}>
-                        <label>Ingredientes:</label>
-                        {listaIngredientes.map((ingrediente) => (
-                            <div key={ingrediente.id} style={{ marginBottom: "10px" }}>
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id)}
-                                        onChange={() => handleCheckboxChange(ingrediente)}
-                                    />
-                                    {ingrediente.nombre} :
-                                </label>
-                                {ingredientesSeleccionados.some((ing) => ing.id === ingrediente.id) && (
-                                    <input
-                                        type="number"
-                                        placeholder="Cantidad"
-                                        value={
-                                            ingredientesSeleccionados.find((ing) => ing.id === ingrediente.id)?.cantidad
-                                        }
-                                        onChange={(e) => handleCantidadChange(ingrediente.id, e.target.value)}
-                                        min="1"
-                                        required
-                                        style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
-                                    />
-                                )}
-                                {" "} {ingrediente.ingreso === "KG" ? "Gramos" : "Unidades"}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div style={{ marginBottom: "15px" }}>
-                        <label>Extras:</label>
-                        {listaMenu.map((platillo) => (
-                            <div key={platillo.id} style={{ marginBottom: "10px" }}>
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={extrasSeleccionados.some((ext) => ext.id === platillo.id)}
-                                        onChange={() => handleCheckboxChangeExtras(platillo)}
-                                    />
-                                    {platillo.nombre}
-                                </label>
-                                {extrasSeleccionados.some((ext) => ext.id === platillo.id) && (
-                                    <>
-                                        <br />
-                                        <select
-                                            value={extrasSeleccionados.find((ext) => ext.id === platillo.id)?.extra ? "true" : "false"}
-                                            onChange={(e) => handleExtraChange(platillo.id, e.target.value)}
-                                            style={{ width: "100%", padding: "8px" }}
-                                        >
-                                            <option value="true">Extra</option>
-                                            <option value="false">Complemento</option>
-                                        </select>
-                                        {/* Mostrar campo de costo solo si es extra */}
-                                        {extrasSeleccionados.find((ext) => ext.id === platillo.id)?.extra && (
+        
+                {vistaActual === 1 && (
+                    <form>
+                        <div style={{ marginBottom: "15px" }}>
+                            <label>Nombre del Platillo:</label>
+                            <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} required style={{ width: "100%" }} />
+                        </div>
+                        <div style={{ marginBottom: "15px" }}>
+                            <label>Precio:</label>
+                            <input type="number" value={precio} onChange={(e) => setPrecio(e.target.value)} step="0.01" required style={{ width: "100%" }} />
+                        </div>
+                        <div style={{ marginBottom: "15px" }}>
+                            <label>Descripción:</label>
+                            <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required style={{ width: "100%" }} />
+                        </div>
+                        <div style={{ marginBottom: "15px" }}>
+                            <label>Imagen:</label>
+                            <input type="file" onChange={handleFileChange} style={{ width: "100%" }} />
+                        </div>
+                        <label>Sección:</label><br />
+                        <select onChange={handleSeccionChange} value={seccionSeleccionada.id} style={{ marginBottom: "15px" }}>
+                            <option value="">Sin sección</option>
+                            {secciones.map((seccion) => (
+                                <option key={seccion.id} value={seccion.id}>{seccion.nombre}</option>
+                            ))}
+                        </select>
+                        <div style={{ marginBottom: "15px" }}>
+                            <label>Tiempo (min):</label>
+                            <input type="number" value={tiempo} onChange={(e) => setTiempo(e.target.value)} required style={{ width: "100%" }} />
+                        </div>
+                        <label>Prioridad:</label><br />
+                        <select onChange={(e) => setPrioriad(e.target.value)} value={prioridad} style={{ marginBottom: "15px" }}>
+                            <option value="1">Alta</option>
+                            <option value="2">Media</option>
+                            <option value="3">Baja</option>
+                        </select>
+                        <button type="button" onClick={() => setVistaActual(2)} style={{ width: "100%", padding: "10px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "5px" }}>
+                            Siguiente: Ingredientes
+                        </button>
+                    </form>
+                )}
+        
+                {vistaActual === 2 && (
+                    <form onSubmit={handleSubmit}>
+                        <div style={{ marginBottom: "15px" }}>
+                            <label>Ingredientes:</label>
+                            {listaIngredientes.map((ingrediente) => {
+                                const seleccionado = ingredientesSeleccionados.find((ing) => ing.id === ingrediente.id);
+                                return (
+                                    <div key={ingrediente.id}>
+                                        <label>
+                                            <input type="checkbox" checked={!!seleccionado} onChange={() => handleCheckboxChange(ingrediente)} />
+                                            {ingrediente.nombre}
+                                        </label>
+                                        {seleccionado && (
                                             <>
-                                                <label>Costo:</label>
-                                                <input
-                                                    type="number"
-                                                    placeholder="Costo"
-                                                    value={extrasSeleccionados.find((ext) => ext.id === platillo.id)?.costo}
-                                                    onChange={(e) => handleCostoChangeExtras(platillo.id, e.target.value)}
-                                                    min="0"
-                                                    required // Solo requerido para extras
-                                                    style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="Cantidad" 
+                                                    value={seleccionado.cantidad} 
+                                                    onChange={(e) => handleCantidadChange(ingrediente.id, e.target.value)} 
+                                                    min="1" 
+                                                    style={{ width: "40%", margin: "5px" }} 
                                                 />
+                                                {ingrediente.ingreso === "KG" ? "gramos" : "unidades"}
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="% Merma" 
+                                                    value={seleccionado.merma} 
+                                                    onChange={(e) => handleMermaChange(ingrediente.id, e.target.value)} 
+                                                    min="0" 
+                                                    max="100" 
+                                                    step="1" 
+                                                    style={{ width: "40%", margin: "5px" }} 
+                                                />
+                                                % merma
                                             </>
                                         )}
-                                    </>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    <button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? "Actualizando..." : "Actualizar Platillo"}
-                    </button>
-                </form>
+                                    </div>
+                                );
+                            })}
+                        </div>
+        
+                        <div style={{ marginBottom: "15px" }}>
+                            <label>Extras y complementos:</label>
+                            {listaMenu.map((platillo) => {
+                                const extra = extrasSeleccionados.find((ext) => ext.id === platillo.id);
+                                return (
+                                    <div key={platillo.id}>
+                                        <label>
+                                            <input type="checkbox" checked={!!extra} onChange={() => handleCheckboxChangeExtras(platillo)} />
+                                            {platillo.nombre}
+                                        </label>
+                                        {extra && (
+                                            <>
+                                                <select value={extra.extra ? "true" : "false"} onChange={(e) => handleExtraChange(platillo.id, e.target.value)} style={{ width: "100%" }}>
+                                                    <option value="true">Extra</option>
+                                                    <option value="false">Complemento</option>
+                                                </select>
+                                                {extra.extra && (
+                                                    <input type="number" value={extra.costo} onChange={(e) => handleCostoChangeExtras(platillo.id, e.target.value)} min="0" placeholder="Costo extra" style={{ width: "100%", marginTop: "5px" }} />
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+        
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <button type="button" onClick={() => setVistaActual(1)} style={{ padding: "10px" }}>Atrás</button>
+                            <button type="submit" disabled={isSubmitting} style={{ padding: "10px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "5px" }}>
+                                {isSubmitting ? "Guardando..." : "Guardar Platillo"}
+                            </button>
+                        </div>
+                    </form>
+                )}
             </div>
         </div>
     );

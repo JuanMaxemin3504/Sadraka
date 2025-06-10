@@ -621,6 +621,7 @@ function MenuMesero() {
         estado: "pendiente",
         puntos: puntos,
         preparando: false,
+        llevar: false,
         fecha: serverTimestamp()
       };
 
