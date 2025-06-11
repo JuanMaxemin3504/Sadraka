@@ -96,8 +96,8 @@ function CreacionPlatilloMenu() {
     } else {
       setIngredientesSeleccionados((prev) => [
         ...prev,
-        { 
-          ...ingrediente, 
+        {
+          ...ingrediente,
           cantidad: 1,
           merma: ingrediente.merma || 0 // Usamos la merma del ingrediente si existe, o 0 por defecto
         },
@@ -217,13 +217,48 @@ function CreacionPlatilloMenu() {
       return;
     }
 
+    // Validación de complementos/extras
+    let countComplementos = 0;
+
+    // Verificar si algún platillo seleccionado como extra/complemento tiene a su vez extras
+    for (const extra of extrasSeleccionados) {
+      // Si es complemento (no extra), incrementar contador
+      if (extra.extra === false) {
+        countComplementos++;
+      }
+
+      // Verificar si este platillo tiene sus propios extras
+      try {
+        const platilloRef = doc(db, "menu", extra.id);
+        const platilloDoc = await getDoc(platilloRef);
+
+        if (platilloDoc.exists() && platilloDoc.data().extras?.length > 0) {
+          alert(`El platillo "${platilloDoc.data().nombre}" no puede ser extra/complemento porque ya tiene sus propios extras.`);
+          return;
+        }
+      } catch (error) {
+        console.error("Error verificando extras del platillo:", error);
+        alert("Error al verificar los extras del platillo.");
+        return;
+      }
+    }
+
+    // Validar máximo de complementos
+    if (countComplementos > 5) {
+      alert("Puedes seleccionar máximo 5 complementos.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     let costeNeto = 0;
+    let platilloBloqueado = false;
 
     ingredientesSeleccionados.forEach((ing) => {
       const ingredienteCompleto = listaIngredientes.find((item) => item.id === ing.id);
       if (!ingredienteCompleto) return;
+
+      if(ingredienteCompleto.baja == true || ingredienteCompleto.estatus == false) {platilloBloqueado = true;}
 
       const costoUnitario = ingredienteCompleto.costo || 0;
       const esPorKilo = ingredienteCompleto.ingreso === "KG";
@@ -273,7 +308,8 @@ function CreacionPlatilloMenu() {
         seccion: seccionSeleccionada.id
           ? { id: seccionSeleccionada.id, nombre: seccionSeleccionada.nombre }
           : { id: "hkw1cc4AbTex3jEQlFBR", nombre: "Seccion Base" },
-        costeNeto: parseFloat(costeNeto.toFixed(2))
+        costeNeto: parseFloat(costeNeto.toFixed(2)),
+        bloqueo: platilloBloqueado,
       };
 
       await addDoc(collection(db, "menu"), platillo);
@@ -367,24 +403,24 @@ function CreacionPlatilloMenu() {
                     </label>
                     {seleccionado && (
                       <>
-                        <input 
-                          type="number" 
-                          placeholder="Cantidad" 
-                          value={seleccionado.cantidad} 
-                          onChange={(e) => handleCantidadChange(ingrediente.id, e.target.value)} 
-                          min="1" 
-                          style={{ width: "40%", margin: "5px" }} 
+                        <input
+                          type="number"
+                          placeholder="Cantidad"
+                          value={seleccionado.cantidad}
+                          onChange={(e) => handleCantidadChange(ingrediente.id, e.target.value)}
+                          min="1"
+                          style={{ width: "40%", margin: "5px" }}
                         />
                         {ingrediente.ingreso === "KG" ? "gramos" : "unidades"}
-                        <input 
-                          type="number" 
-                          placeholder="% Merma" 
-                          value={seleccionado.merma} 
-                          onChange={(e) => handleMermaChange(ingrediente.id, e.target.value)} 
-                          min="0" 
-                          max="100" 
-                          step="1" 
-                          style={{ width: "40%", margin: "5px" }} 
+                        <input
+                          type="number"
+                          placeholder="% Merma"
+                          value={seleccionado.merma}
+                          onChange={(e) => handleMermaChange(ingrediente.id, e.target.value)}
+                          min="0"
+                          max="100"
+                          step="1"
+                          style={{ width: "40%", margin: "5px" }}
                         />
                         % merma
                       </>

@@ -23,7 +23,11 @@ function AgregarMermaAdmin() {
     const getPlatillos = async () => {
         try {
             const productosRef = collection(db, "menu");
-            const q = query(productosRef);
+            const q = query(
+                  productosRef,(
+                  where("bloqueo", "==", false), 
+                  where("estatus", "==", true))
+                );
             const querySnapshot = await getDocs(q);
             const productsData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -38,7 +42,11 @@ function AgregarMermaAdmin() {
     const getInventario = async () => {
         try {
             const productosRef = collection(db, "products");
-            const q = query(productosRef);
+            const q = query(
+                productosRef,(
+                where("baja", "==", false),
+                where("estatus", "==", true))
+              );
             const querySnapshot = await getDocs(q);
             const productsData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -66,7 +74,7 @@ function AgregarMermaAdmin() {
             return;
         }
 
-        if(parseInt(cantidad) < 1){
+        if (parseInt(cantidad) < 1) {
             alert("La cantidad de la merma debe ser 1 como minimo");
             return;
         }
@@ -83,7 +91,7 @@ function AgregarMermaAdmin() {
                 edicion: serverTimestamp(),
                 idReferente: merma.id,
                 aplicada: false, // 🔹 Marca la merma como no aplicada
-              };              
+            };
 
             const docRef = await addDoc(collection(db, "merma"), Merma);
             console.log("Merma creada con ID:", docRef.id);

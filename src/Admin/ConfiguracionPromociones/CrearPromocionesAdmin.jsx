@@ -84,12 +84,12 @@ const navigate = useNavigate();
                 return;
             }
             if (new Date(fechaInicio) > new Date(fechaFin)) {
-                alert("La fecha de inicio no puede ser mayor a la fecha de fin");
+                alert("La fecha de inicio no puede ser depues a la fecha de fin");
                 setIsSubmitting(false);
                 return;
             }
-            if(new Date(fechaInicio) > new Date(getDay())){
-                alert("La fecha de inicio no puede anterior al dia actual");
+            if (new Date(fechaInicio) < new Date()) {
+                alert("La fecha de inicio no puede ser anterior al día actual");
                 setIsSubmitting(false);
                 return;
             }

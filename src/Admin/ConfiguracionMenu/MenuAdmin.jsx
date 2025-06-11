@@ -158,6 +158,7 @@ function MenuAdmin() {
                             <th></th>
                             <th></th>
                             <th></th>
+                            <th></th>
 
                         </tr>
                     </thead>
@@ -255,6 +256,21 @@ function MenuAdmin() {
                                         }}
                                     >
                                         {product.estatus === true ? "Activo" : "Inactivo"}
+                                    </button>
+                                </td>
+
+                                <td style={{ textAlign: 'center' }}>
+                                    <button
+                                        style={{
+                                            backgroundColor: product.bloqueo === true ? 'reed' : 'green',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '5px 10px',
+                                            borderRadius: '5px',
+                                            cursor: product.baja ? "not-allowed" : "pointer",
+                                        }}
+                                    >
+                                        {product.bloqueo === true ? "Bloqueado" : "Activo"}
                                     </button>
                                 </td>
                             </tr>

@@ -6,6 +6,7 @@ import NavBarMeseros from '../Admin/NavBars/NavBarMeseros';
 import '@ant-design/v5-patch-for-react-19';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable'; // ← esta línea importa la extensión y la registra automáticamente
+import { ValidacionIngredientesPlatillos } from '../ValidacionesPlatillosEstatus/ValidacionIngredientesPlatillos';
 
 const CuentaMesas = () => {
   const [pedidosTerminados, setPedidosTerminados] = useState([]);
@@ -317,6 +318,7 @@ const CuentaMesas = () => {
           if(snapIngrediente.data().ingreso == "KG"){
             cantidadADescontarReal = cantidadADescontarReal/1000;
           }
+          ValidacionIngredientesPlatillos(ingredienteId);
           const nuevoStock = stockActual - cantidadADescontarReal;
                     
           batchInventario.update(refIngrediente, { cantidad: nuevoStock });

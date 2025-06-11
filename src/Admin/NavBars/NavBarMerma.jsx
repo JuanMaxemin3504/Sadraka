@@ -13,10 +13,6 @@ function NavBarMerma() {
                         <Button color="inherit" component={Link} to="/merma"> Merma </Button>
                     )}
 
-                    {location.pathname !== "/procesos_merma" && (
-                    <Button color="inherit" component={Link} to="/procesos_merma"> Automatizar merma </Button>
-                    )}
-
                     {location.pathname !== "/agregar_merma" && (
                     <Button color="inherit" component={Link} to="/agregar_merma"> Agregar merma </Button>
                     )}

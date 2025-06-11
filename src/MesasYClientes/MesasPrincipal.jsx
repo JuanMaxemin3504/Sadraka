@@ -83,11 +83,16 @@ function MesasPrincipal() {
         ...doc.data()
       }));
 
-      // Filtrar promociones vigentes
       const hoy = new Date();
-      const promocionesVigentes = promocionesData.filter(promo => {
+
+      const promocionesVigentes = [];
+
+      for (const promo of promocionesData) {
+        // 1. Validar si está vigente
+        let esVigente = false;
+
         if (promo.esSemanal) {
-          const diaSemana = hoy.getDay(); // 0=Domingo, 1=Lunes, etc.
+          const diaSemana = hoy.getDay(); // 0=Domingo
           const diasActivos = [
             promo.dias.domingo,
             promo.dias.lunes,
@@ -97,13 +102,39 @@ function MesasPrincipal() {
             promo.dias.viernes,
             promo.dias.sabado
           ];
-          return diasActivos[diaSemana];
+          esVigente = diasActivos[diaSemana];
         } else {
           const inicio = new Date(promo.fechaInicio);
           const fin = new Date(promo.fechaFin);
-          return hoy >= inicio && hoy <= fin;
+          esVigente = hoy >= inicio && hoy <= fin;
         }
-      });
+
+        if (!esVigente) continue;
+
+        // 2. Validar platillos según tipo
+        const platillos = promo.platillos || []; // Asume que promo tiene un campo `platillos` con array de IDs
+        if (platillos.length === 0) continue;
+
+        const platillosSnap = await Promise.all(
+          platillos.map(pid => getDoc(doc(db, "menu", pid)))
+        );
+
+        const bloqueados = platillosSnap.filter(doc => {
+          const data = doc.data();
+          return data?.bloqueo;
+        });
+
+        if (
+          (promo.tipo === 0 || promo.tipo === 1) &&
+          bloqueados.length < platillos.length // al menos uno no bloqueado
+        ) {
+          promocionesVigentes.push(promo);
+        }
+
+        if (promo.tipo === 2 && bloqueados.length === 0) {
+          promocionesVigentes.push(promo);
+        }
+      }
 
       setPromociones(promocionesVigentes);
     } catch (error) {
@@ -767,21 +798,23 @@ function MesasPrincipal() {
               marginTop: '15px'
             }}>
               {platillosFiltrados.map(platillo => (
-                <button
-                  onClick={() => handleSeleccionarPlatillo(platillo.id)}
-                  key={platillo.id}
-                  style={{
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <p>{platillo.nombre}</p>
-                  <p>${platillo.precio}</p>
-                </button>
+                platillo.bloqueo != true && platillo.estatus == true && (
+                  <button
+                    onClick={() => handleSeleccionarPlatillo(platillo.id)}
+                    key={platillo.id}
+                    style={{
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px',
+                      borderRadius: '5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <p>{platillo.nombre}</p>
+                    <p>${platillo.precio}</p>
+                  </button>
+                )
               ))}
             </div>
           </div>
@@ -871,21 +904,23 @@ function MesasPrincipal() {
                   marginTop: '15px'
                 }}>
                   {platillosFiltrados.map(platillo => (
-                    <button
-                      onClick={() => handleSeleccionarPlatilloPromociones(platillo.id)}
-                      key={platillo.id}
-                      style={{
-                        backgroundColor: '#007bff',
-                        color: 'white',
-                        border: 'none',
-                        padding: '10px',
-                        borderRadius: '5px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <p>{platillo.nombre}</p>
-                      <p>${platillo.precio}</p>
-                    </button>
+                    platillo.bloqueo != true && platillo.estatus == true && (
+                      <button
+                        onClick={() => handleSeleccionarPlatilloPromociones(platillo.id)}
+                        key={platillo.id}
+                        style={{
+                          backgroundColor: '#007bff',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px',
+                          borderRadius: '5px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <p>{platillo.nombre}</p>
+                        <p>${platillo.precio}</p>
+                      </button>
+                    )
                   ))}
                 </div>
               </div>

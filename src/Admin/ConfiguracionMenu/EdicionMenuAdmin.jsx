@@ -19,6 +19,7 @@ function EdicionMenuAdmin() {
     const [ingredientesSeleccionados, setIngredientesSeleccionados] = useState([]);
     const [extrasSeleccionados, setExtrasSeleccionados] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [platilloBloqueado, setPlatilloBloqueado] = useState(false);
     const [secciones, setSecciones] = useState([]);
     const [tiempo, setTiempo] = useState("");
     const [prioridad, setPrioriad] = useState(1);
@@ -88,8 +89,8 @@ function EdicionMenuAdmin() {
         } else {
             setIngredientesSeleccionados((prev) => [
                 ...prev,
-                { 
-                    ...ingrediente, 
+                {
+                    ...ingrediente,
                     cantidad: 1,
                     merma: ingrediente.merma || 0 // Incluimos merma con valor inicial 0
                 },
@@ -196,18 +197,19 @@ function EdicionMenuAdmin() {
                 setNombre(platilloData.nombre);
                 setPrecio(platilloData.precio.toString());
                 setDescripcion(platilloData.descripcion);
-                
+
                 // Asegurarnos que cada ingrediente tenga su merma (o 0 si no existe)
                 const ingredientesConMerma = platilloData.ingredientes.map(ing => ({
                     ...ing,
                     merma: ing.merma || 0
                 }));
-                
+
                 setIngredientesSeleccionados(ingredientesConMerma);
                 setExtrasSeleccionados(platilloData.extras || []);
                 setPrioriad(platilloData.prioridad);
                 setTiempo(platilloData.tiempo);
                 setSecciones(platilloData.seccion);
+                setPlatilloBloqueado(platilloData.bloqueo);
                 setSeccionSeleccionada({
                     id: platilloData.seccion.id,
                     nombre: platilloData.seccion.nombre,
@@ -257,6 +259,38 @@ function EdicionMenuAdmin() {
             return;
         }
 
+        // Validación de complementos/extras
+        let countComplementos = 0;
+
+        // Verificar si algún platillo seleccionado como extra/complemento tiene a su vez extras
+        for (const extra of extrasSeleccionados) {
+            // Si es complemento (no extra), incrementar contador
+            if (extra.extra === false) {
+                countComplementos++;
+            }
+
+            // Verificar si este platillo tiene sus propios extras
+            try {
+                const platilloRef = doc(db, "menu", extra.id);
+                const platilloDoc = await getDoc(platilloRef);
+
+                if (platilloDoc.exists() && platilloDoc.data().extras?.length > 0) {
+                    alert(`El platillo "${platilloDoc.data().nombre}" no puede ser extra/complemento porque ya tiene sus propios extras.`);
+                    return;
+                }
+            } catch (error) {
+                console.error("Error verificando extras del platillo:", error);
+                alert("Error al verificar los extras del platillo.");
+                return;
+            }
+        }
+
+        // Validar máximo de complementos
+        if (countComplementos > 5) {
+            alert("Puedes seleccionar máximo 5 complementos.");
+            return;
+        }
+
         setIsSubmitting(true);
 
         let costeNeto = 0;
@@ -264,6 +298,9 @@ function EdicionMenuAdmin() {
         ingredientesSeleccionados.forEach((ing) => {
             const ingredienteCompleto = listaIngredientes.find((item) => item.id === ing.id);
             if (!ingredienteCompleto) return;
+
+            if (ingredienteCompleto.baja == true || ingredienteCompleto.estatus == false) { setPlatilloBloqueado(true)}
+
 
             const costoUnitario = ingredienteCompleto.costo || 0;
             const esPorKilo = ingredienteCompleto.ingreso === "KG";
@@ -313,10 +350,11 @@ function EdicionMenuAdmin() {
                 seccion: seccionSeleccionada.id
                     ? { id: seccionSeleccionada.id, nombre: seccionSeleccionada.nombre }
                     : { id: "hkw1cc4AbTex3jEQlFBR", nombre: "Seccion Base" },
-                costeNeto: parseFloat(costeNeto.toFixed(2))
+                costeNeto: parseFloat(costeNeto.toFixed(2)),
+                bloqueo: platilloBloqueado,
             };
 
-            await updateDoc(doc(db, "menu", id), platillo); 
+            await updateDoc(doc(db, "menu", id), platillo);
             navigate("/menu_admin");
         } catch (error) {
             console.error("Error al actualizar el platillo:", error);
@@ -337,7 +375,7 @@ function EdicionMenuAdmin() {
             <NavBarMenuAdmin />
             <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
                 <h2>Editar Platillo</h2>
-        
+
                 {vistaActual === 1 && (
                     <form>
                         <div style={{ marginBottom: "15px" }}>
@@ -378,7 +416,7 @@ function EdicionMenuAdmin() {
                         </button>
                     </form>
                 )}
-        
+
                 {vistaActual === 2 && (
                     <form onSubmit={handleSubmit}>
                         <div style={{ marginBottom: "15px" }}>
@@ -393,24 +431,24 @@ function EdicionMenuAdmin() {
                                         </label>
                                         {seleccionado && (
                                             <>
-                                                <input 
-                                                    type="number" 
-                                                    placeholder="Cantidad" 
-                                                    value={seleccionado.cantidad} 
-                                                    onChange={(e) => handleCantidadChange(ingrediente.id, e.target.value)} 
-                                                    min="1" 
-                                                    style={{ width: "40%", margin: "5px" }} 
+                                                <input
+                                                    type="number"
+                                                    placeholder="Cantidad"
+                                                    value={seleccionado.cantidad}
+                                                    onChange={(e) => handleCantidadChange(ingrediente.id, e.target.value)}
+                                                    min="1"
+                                                    style={{ width: "40%", margin: "5px" }}
                                                 />
                                                 {ingrediente.ingreso === "KG" ? "gramos" : "unidades"}
-                                                <input 
-                                                    type="number" 
-                                                    placeholder="% Merma" 
-                                                    value={seleccionado.merma} 
-                                                    onChange={(e) => handleMermaChange(ingrediente.id, e.target.value)} 
-                                                    min="0" 
-                                                    max="100" 
-                                                    step="1" 
-                                                    style={{ width: "40%", margin: "5px" }} 
+                                                <input
+                                                    type="number"
+                                                    placeholder="% Merma"
+                                                    value={seleccionado.merma}
+                                                    onChange={(e) => handleMermaChange(ingrediente.id, e.target.value)}
+                                                    min="0"
+                                                    max="100"
+                                                    step="1"
+                                                    style={{ width: "40%", margin: "5px" }}
                                                 />
                                                 % merma
                                             </>
@@ -419,7 +457,7 @@ function EdicionMenuAdmin() {
                                 );
                             })}
                         </div>
-        
+
                         <div style={{ marginBottom: "15px" }}>
                             <label>Extras y complementos:</label>
                             {listaMenu.map((platillo) => {
@@ -445,7 +483,7 @@ function EdicionMenuAdmin() {
                                 );
                             })}
                         </div>
-        
+
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <button type="button" onClick={() => setVistaActual(1)} style={{ padding: "10px" }}>Atrás</button>
                             <button type="submit" disabled={isSubmitting} style={{ padding: "10px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "5px" }}>

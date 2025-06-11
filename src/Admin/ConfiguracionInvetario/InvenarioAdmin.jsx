@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { db, storage } from "../../firebase";
-import { collection, query, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, query, getDocs, doc, deleteDoc, updateDoc, where, writeBatch, getDoc } from "firebase/firestore";
 import NavBarInventario from '../NavBars/NavBarInventario';
 import { Link } from "react-router-dom";
 import { deleteObject, ref } from "firebase/storage";
+import { ValidacionIngredientesPlatillos } from "../../ValidacionesPlatillosEstatus/ValidacionIngredientesPlatillos";
+import Swal from 'sweetalert2';
 
 const urlImagenBlanco = "https://tse3.mm.bing.net/th/id/OIP.0nEFZ6umUtwq2FJce32emgHaE8?rs=1&pid=ImgDetMain"
 
@@ -40,6 +42,100 @@ function InvenarioAdmin() {
     loadProducts();
   }, []);
 
+  async function desbloquearPlatillosPorIngrediente(ingredienteId) {
+    const platillosDesbloqueados = [];
+    const batch = writeBatch(db);
+
+    try {
+      // 1. Verificar stock del ingrediente modificado
+      const ingredienteRef = doc(db, "products", ingredienteId);
+      const ingredienteDoc = await getDoc(ingredienteRef);
+
+      if (!ingredienteDoc.exists()) {
+        throw new Error("Ingrediente no encontrado");
+      }
+
+      const ingredienteData = ingredienteDoc.data();
+      const stock = ingredienteData.cantidad || 0;
+      const estaActivo = ingredienteData.estatus !== false && ingredienteData.baja !== true;
+
+      // Si el ingrediente sigue sin stock o inactivo, no hacer nada
+      if (stock <= 0 || !estaActivo) {
+        console.log("El ingrediente no cumple condiciones para desbloquear platillos");
+        return [];
+      } else {
+        console.log("Ingrediente desbloqueado");
+      }
+
+      // 2. Buscar platillos bloqueados que contengan este ingrediente
+      const menuRef = collection(db, "menu");
+      const querySnapshot = await getDocs(menuRef);
+      querySnapshot.forEach((doc) => {
+        const platilloData = doc.data();
+        const tieneIngrediente = platilloData.ingredientes?.some(
+          ing => ing.id === ingredienteId
+        );
+
+        // 3. Verificar cada platillo
+
+        if (tieneIngrediente) {
+          const todosIngredientesDisponibles = verificarIngredientesDisponibles(platilloData.ingredientes);
+          if (todosIngredientesDisponibles) {
+            platillosDesbloqueados.push({
+              id: doc.id,
+              nombre: platilloData.nombre
+            });
+
+            batch.update(doc.ref, {
+              bloqueo: false,
+              motivoBloqueo: null,
+              ultimaActualizacion: new Date()
+            });
+          }
+        }
+      });
+
+      // 4. Ejecutar actualizaciones
+      if (platillosDesbloqueados.length > 0) {
+        await batch.commit();
+        console.log(`${platillosDesbloqueados.length} platillos desbloqueados`);
+      }
+
+      return platillosDesbloqueados;
+
+    } catch (error) {
+      console.error("Error al desbloquear platillos:", error);
+      throw error;
+    }
+  }
+
+  async function verificarIngredientesDisponibles(ingredientes) {
+    if (!ingredientes || ingredientes.length === 0) return true;
+
+    for (const ing of ingredientes) {
+      const ingredienteId = ing.id || ing; // Soporta tanto string como objetos
+      try {
+        const ingredienteRef = doc(db, "products", ingredienteId);
+        const ingredienteDoc = await getDoc(ingredienteRef);
+
+        if (!ingredienteDoc.exists()) return false;
+
+        const DataIngrediente = ingredienteDoc.data();
+        const stock = DataIngrediente.cantidad || 0;
+        const estaActivo = DataIngrediente.estatus !== false && DataIngrediente.baja !== true;
+
+        if (stock <= 0 && !estaActivo) {
+          return false;
+        }
+      } catch (error) {
+        console.error(`Error verificando ingrediente ${ingredienteId}:`, error);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   const handleDelete = async (productId, url, nom) => {
     const usuarioConfirmo = window.confirm("Estas seguro que quieres eliminar el platillo " + nom);
     if (usuarioConfirmo) {
@@ -74,12 +170,81 @@ function InvenarioAdmin() {
         await updateDoc(productRef, {
           estatus: false
         });
+        ValidacionIngredientesPlatillos(productId)
+          .then((platillosAfectados) => {
+            if (platillosAfectados.length > 0) {
+              const nombresPlatillos = platillosAfectados.map(p =>
+                `• ${p.nombre}`
+              ).join("<br>");
+
+              Swal.fire({
+                title: `⚠️ ${platillosAfectados.length} platillos bloqueados`,
+                html: `
+          <p>Se bloquearon los siguientes platillos por falta de ingredientes:</p>
+          <div style="text-align: left; margin: 10px 0;">
+            ${nombresPlatillos}
+          </div>
+        `,
+                icon: 'warning',
+                confirmButtonText: 'Entendido'
+              });
+            } else {
+              Swal.fire({
+                title: '✅ Sin afectaciones',
+                text: 'Todos los platillos mantienen sus ingredientes disponibles.',
+                icon: 'success'
+              });
+            }
+          })
+          .catch((error) => {
+            console.error("Error en el proceso:", error);
+            Swal.fire({
+              title: '❌ Error',
+              text: `No se pudo validar los ingredientes: ${error.message}`,
+              icon: 'error'
+            });
+          });
+
       } else {
         await updateDoc(productRef, {
           estatus: true
         });
+        desbloquearPlatillosPorIngrediente(productId)
+          .then(platillosDesbloqueados => {
+            if (platillosDesbloqueados.length > 0) {
+              const nombresPlatillos = platillosDesbloqueados.map(p =>
+                `• ${p.nombre}`
+              ).join("<br>");
+
+              Swal.fire({
+                title: `✅ ${platillosDesbloqueados.length} platillos reactivados`,
+                html: `
+          <p>Los siguientes platillos ahora están disponibles:</p>
+          <div style="text-align: left; margin: 10px 0;">
+            ${nombresPlatillos}
+          </div>
+        `,
+                icon: 'success',
+                confirmButtonText: 'Entendido'
+              });
+            } else {
+              Swal.fire({
+                title: 'ℹ️ Sin cambios',
+                text: 'Ningún platillo cumplió las condiciones para reactivación.',
+                icon: 'info'
+              });
+            }
+          })
+          .catch(error => {
+            Swal.fire({
+              title: '❌ Error',
+              text: `No se pudieron reactivar platillos: ${error.message}`,
+              icon: 'error'
+            });
+          });
       }
-      window.location.reload();
+
+      loadProducts();
     } catch (error) {
       console.error("Error al actualizar el producto:", error);
       alert("Hubo un error al actualizar el producto.");
@@ -93,12 +258,79 @@ function InvenarioAdmin() {
         await updateDoc(productRef, {
           baja: false
         });
+        desbloquearPlatillosPorIngrediente(productId)
+          .then(platillosDesbloqueados => {
+            if (platillosDesbloqueados.length > 0) {
+              const nombresPlatillos = platillosDesbloqueados.map(p =>
+                `• ${p.nombre}`
+              ).join("<br>");
+
+              Swal.fire({
+                title: `✅ ${platillosDesbloqueados.length} platillos reactivados`,
+                html: `
+          <p>Los siguientes platillos ahora están disponibles:</p>
+          <div style="text-align: left; margin: 10px 0;">
+            ${nombresPlatillos}
+          </div>
+        `,
+                icon: 'success',
+                confirmButtonText: 'Entendido'
+              });
+            } else {
+              Swal.fire({
+                title: 'ℹ️ Sin cambios',
+                text: 'Ningún platillo cumplió las condiciones para reactivación.',
+                icon: 'info'
+              });
+            }
+          })
+          .catch(error => {
+            Swal.fire({
+              title: '❌ Error',
+              text: `No se pudieron reactivar platillos: ${error.message}`,
+              icon: 'error'
+            });
+          });
       } else {
         await updateDoc(productRef, {
           baja: true
         });
+        ValidacionIngredientesPlatillos(productId)
+          .then((platillosAfectados) => {
+            if (platillosAfectados.length > 0) {
+              const nombresPlatillos = platillosAfectados.map(p =>
+                `• ${p.nombre}`
+              ).join("<br>");
+
+              Swal.fire({
+                title: `⚠️ ${platillosAfectados.length} platillos bloqueados`,
+                html: `
+          <p>Se bloquearon los siguientes platillos por falta de ingredientes:</p>
+          <div style="text-align: left; margin: 10px 0;">
+            ${nombresPlatillos}
+          </div>
+        `,
+                icon: 'warning',
+                confirmButtonText: 'Entendido'
+              });
+            } else {
+              Swal.fire({
+                title: '✅ Sin afectaciones',
+                text: 'Todos los platillos mantienen sus ingredientes disponibles.',
+                icon: 'success'
+              });
+            }
+          })
+          .catch((error) => {
+            console.error("Error en el proceso:", error);
+            Swal.fire({
+              title: '❌ Error',
+              text: `No se pudo validar los ingredientes: ${error.message}`,
+              icon: 'error'
+            });
+          });
       }
-      window.location.reload();
+      loadProducts();
     } catch (error) {
       console.error("Error al actualizar el producto:", error);
       alert("Hubo un error al actualizar el producto.");

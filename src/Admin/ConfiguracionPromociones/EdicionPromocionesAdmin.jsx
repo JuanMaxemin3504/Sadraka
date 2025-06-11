@@ -141,6 +141,11 @@ const EdicionPromocionesAdmin = () => {
                 setIsSubmitting(false);
                 return;
             }
+            if (new Date(fechaInicio) < new Date()) {
+                alert("La fecha de inicio no puede ser anterior al día actual");
+                setIsSubmitting(false);
+                return;
+            }
         }
 
         if (tipoPromocion === 2 && !precioPaquete) {

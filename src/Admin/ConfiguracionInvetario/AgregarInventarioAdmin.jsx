@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../../firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import NavBarInventario from '../NavBars/NavBarInventario';
 
 function AgregarInventarioAdmin() {
@@ -48,46 +48,52 @@ function AgregarInventarioAdmin() {
       alert("La cantidad debe ser un número válido.");
       return;
     }
+    
     if (cantidad <= 0) {
       alert("La cantidad debe ser mayor a 0.");
       return;
     }
     
-    if (ingreso != "KG") {
-      try{
-        validacion = parseInt(cantidad);
-      }catch{
-        alert("La cantidad no debe tener decimales");
+    if (ingreso !== "KG" && cantidad % 1 !== 0) {
+      alert("La cantidad no debe tener decimales si el ingreso no es por KG.");
+      return;
+    }
+    
+    if (ingreso === "KG") {
+      if (cantidad > 100) {
+        alert("La cantidad no debe ser mayor a 100.");
         return;
       }
     }
-    if (ingreso == "KG") {
-      if(cantidad <= 0)
-      {
-        alert("La cantidad no debe ser menor 0");
-        return;
-      }
-      if(cantidad > 100)
-      {
-        alert("La cantidad no debe ser mayor 100");
-        return;
-      }
-    }
+    
     setIsSubmitting(true);
 
     try {
       let nuevoInventario;
+      let InventarioRegistroCantidad = 0;
       if (paquetes) {
         // Si el producto es por paquetes, multiplicar la cantidad por la cantidad unitaria por paquete
         nuevoInventario = inventario + (parseFloat(cantidad) * parseFloat(paquetes));
+        InventarioRegistroCantidad = parseFloat(cantidad) * parseFloat(paquetes)
       } else {
         nuevoInventario = parseFloat(inventario) + parseFloat(cantidad);
+        InventarioRegistroCantidad = parseFloat(cantidad)
       }
 
       const productRef = doc(db, "products", id);
       await updateDoc(productRef, {
         cantidad: nuevoInventario,
       });
+
+      const docRef = await addDoc(collection(db, "registroInventario"), {
+        productName: nombre,
+        productId: id,
+        cantidadOriginal: inventario,
+        cantidadAgregada: InventarioRegistroCantidad,
+        fecha: serverTimestamp(),
+      });
+
+      console.log("Registro guardado con ID:", docRef.id);
 
       alert("Producto actualizado correctamente.");
       navigate("/inventario");
