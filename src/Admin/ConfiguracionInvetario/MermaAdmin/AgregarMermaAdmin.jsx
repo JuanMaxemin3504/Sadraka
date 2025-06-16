@@ -24,10 +24,10 @@ function AgregarMermaAdmin() {
         try {
             const productosRef = collection(db, "menu");
             const q = query(
-                  productosRef,(
-                  where("bloqueo", "==", false), 
-                  where("estatus", "==", true))
-                );
+                productosRef, (
+                where("bloqueo", "==", false),
+                where("estatus", "==", true))
+            );
             const querySnapshot = await getDocs(q);
             const productsData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -43,10 +43,10 @@ function AgregarMermaAdmin() {
         try {
             const productosRef = collection(db, "products");
             const q = query(
-                productosRef,(
+                productosRef, (
                 where("baja", "==", false),
                 where("estatus", "==", true))
-              );
+            );
             const querySnapshot = await getDocs(q);
             const productsData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -81,6 +81,19 @@ function AgregarMermaAdmin() {
 
         setIsSubmitting(true);
 
+        let precioUnitario = 0;
+
+        if (mostrarInventario) {
+            const productRef = doc(db, "products", merma.id);
+            const productSnap = await getDoc(productRef);
+            precioUnitario = parseFloat(productSnap.data().costo / 1000);
+        } else {
+            const platilloRef = doc(db, "menu", id);
+            const platilloDoc = await getDoc(platilloRef);
+            precioUnitario = platilloDoc.data().precio;
+        }
+
+
         try {
 
             const Merma = {
@@ -90,6 +103,7 @@ function AgregarMermaAdmin() {
                 creacion: serverTimestamp(),
                 edicion: serverTimestamp(),
                 idReferente: merma.id,
+                precioUnitario: precioUnitario,
                 aplicada: false, // 🔹 Marca la merma como no aplicada
             };
 

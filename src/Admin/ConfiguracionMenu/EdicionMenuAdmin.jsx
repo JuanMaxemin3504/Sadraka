@@ -45,6 +45,14 @@ function EdicionMenuAdmin() {
         }
     };
 
+    const handleVisibilityChange = (id, visible) => {
+        setIngredientesSeleccionados((prev) =>
+            prev.map((ing) =>
+                ing.id === id ? { ...ing, visible: visible === "true" } : ing
+            )
+        );
+    };
+
     const ObtenerMenu = async () => {
         try {
             const productosRef = collection(db, "menu");
@@ -92,7 +100,8 @@ function EdicionMenuAdmin() {
                 {
                     ...ingrediente,
                     cantidad: 1,
-                    merma: ingrediente.merma || 0 // Incluimos merma con valor inicial 0
+                    merma: ingrediente.merma || 0,
+                    visible: true // Por defecto visible
                 },
             ]);
         }
@@ -199,12 +208,13 @@ function EdicionMenuAdmin() {
                 setDescripcion(platilloData.descripcion);
 
                 // Asegurarnos que cada ingrediente tenga su merma (o 0 si no existe)
-                const ingredientesConMerma = platilloData.ingredientes.map(ing => ({
+                const ingredientesConMermaYVisible = platilloData.ingredientes.map(ing => ({
                     ...ing,
-                    merma: ing.merma || 0
+                    merma: ing.merma || 0,
+                    visible: ing.visible !== undefined ? ing.visible : true
                 }));
 
-                setIngredientesSeleccionados(ingredientesConMerma);
+                setIngredientesSeleccionados(ingredientesConMermaYVisible);
                 setExtrasSeleccionados(platilloData.extras || []);
                 setPrioriad(platilloData.prioridad);
                 setTiempo(platilloData.tiempo);
@@ -299,7 +309,7 @@ function EdicionMenuAdmin() {
             const ingredienteCompleto = listaIngredientes.find((item) => item.id === ing.id);
             if (!ingredienteCompleto) return;
 
-            if (ingredienteCompleto.baja == true || ingredienteCompleto.estatus == false) { setPlatilloBloqueado(true)}
+            if (ingredienteCompleto.baja == true || ingredienteCompleto.estatus == false) { setPlatilloBloqueado(true) }
 
 
             const costoUnitario = ingredienteCompleto.costo || 0;
@@ -332,7 +342,8 @@ function EdicionMenuAdmin() {
                     nombre: ing.nombre,
                     cantidad: ing.cantidad,
                     unitario: ing.ingreso !== "KG",
-                    merma: ing.merma || 0 // Incluimos la merma en cada ingrediente
+                    merma: ing.merma || 0,
+                    visible: ing.visible // Incluimos la visibilidad
                 })),
                 extras: extrasSeleccionados.length > 0
                     ? extrasSeleccionados.map((ext) => {
@@ -451,6 +462,14 @@ function EdicionMenuAdmin() {
                                                     style={{ width: "40%", margin: "5px" }}
                                                 />
                                                 % merma
+                                                <select
+                                                    value={seleccionado.visible ? "true" : "false"}
+                                                    onChange={(e) => handleVisibilityChange(ingrediente.id, e.target.value)}
+                                                    style={{ width: "100%", marginTop: "5px" }}
+                                                >
+                                                    <option value="true">Visible para cliente</option>
+                                                    <option value="false">Oculto para cliente</option>
+                                                </select>
                                             </>
                                         )}
                                     </div>

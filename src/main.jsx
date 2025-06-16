@@ -34,8 +34,6 @@ import AgregarMermaAdmin from './Admin/ConfiguracionInvetario/MermaAdmin/Agregar
 
 { /* Import Usuarios Admin */}
 import UsuariosAdmin from './Admin/ConfiguracionUsuarios/UsuariosAdmin';
-import ConfigurarPermisos from './Admin/ConfiguracionUsuarios/ConfigurarPermisos';
-import ConfiguracionCocinas from './Admin/ConfiguracionUsuarios/ConfiguracionCocinas';
 
 { /* Import Menu admin */}
 import MenuAdmin from './Admin/ConfiguracionMenu/MenuAdmin';
@@ -74,9 +72,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/agregar_merma" element={<AgregarMermaAdmin/> } />
 
         { /* Rutas Usuarios */}
-        <Route path="/usuarios" element={ <UsuariosAdmin/> } />    
-        <Route path="/edicion_permisos/:id" element={ <ConfigurarPermisos/> } />    
-        <Route path="/edicion_cocinas/:id" element={ <ConfiguracionCocinas/> } />    
+        <Route path="/usuarios" element={ <UsuariosAdmin/> } /> 
 
         { /* Rutas Menu */}
         <Route path="/menu_admin" element={ <MenuAdmin/> } />    

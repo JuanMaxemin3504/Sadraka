@@ -99,10 +99,19 @@ function CreacionPlatilloMenu() {
         {
           ...ingrediente,
           cantidad: 1,
-          merma: ingrediente.merma || 0 // Usamos la merma del ingrediente si existe, o 0 por defecto
+          merma: ingrediente.merma || 0,
+          visible: true // Por defecto los ingredientes son visibles
         },
       ]);
     }
+  };
+
+  const handleVisibilityChange = (id, visible) => {
+    setIngredientesSeleccionados((prev) =>
+      prev.map((ing) =>
+        ing.id === id ? { ...ing, visible: visible === "true" } : ing
+      )
+    );
   };
 
   const handleMermaChange = (id, merma) => {
@@ -258,7 +267,7 @@ function CreacionPlatilloMenu() {
       const ingredienteCompleto = listaIngredientes.find((item) => item.id === ing.id);
       if (!ingredienteCompleto) return;
 
-      if(ingredienteCompleto.baja == true || ingredienteCompleto.estatus == false) {platilloBloqueado = true;}
+      if (ingredienteCompleto.baja == true || ingredienteCompleto.estatus == false) { platilloBloqueado = true; }
 
       const costoUnitario = ingredienteCompleto.costo || 0;
       const esPorKilo = ingredienteCompleto.ingreso === "KG";
@@ -290,7 +299,8 @@ function CreacionPlatilloMenu() {
           nombre: ing.nombre,
           cantidad: ing.cantidad,
           unitario: ing.ingreso !== "KG",
-          merma: ing.merma || 0 // Incluimos la merma en cada ingrediente
+          merma: ing.merma || 0,
+          visible: ing.visible // Incluimos la visibilidad
         })),
         extras: extrasSeleccionados.length > 0
           ? extrasSeleccionados.map((ext) => {
@@ -423,6 +433,14 @@ function CreacionPlatilloMenu() {
                           style={{ width: "40%", margin: "5px" }}
                         />
                         % merma
+                        <select
+                          value={seleccionado.visible ? "true" : "false"}
+                          onChange={(e) => handleVisibilityChange(ingrediente.id, e.target.value)}
+                          style={{ width: "100%", marginTop: "5px" }}
+                        >
+                          <option value="true">Visible para cliente</option>
+                          <option value="false">Oculto para cliente</option>
+                        </select>
                       </>
                     )}
                   </div>

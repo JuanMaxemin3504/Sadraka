@@ -42,7 +42,7 @@ function ClientesPedidos() {
     const [nombreCliente, setNombreCliente] = useState("");
     const [telefonoCliente, setTelefonoCliente] = useState("");
     const [mostrarFormularioCliente, setMostrarFormularioCliente] = useState(false);
-    const [idPedido, setIdPedido] = useState("");
+    const [moduloActivado, setModuloActivado] = useState(false);
 
     useEffect(() => {
         setMesa({
@@ -52,7 +52,19 @@ function ClientesPedidos() {
         loadSecciones();
         loadPlatillos();
         loadPromociones();
+        verificarAcceso();
     }, []);
+
+    const verificarAcceso = async () => {
+        try {
+            const infRed = doc(db, "informacion", "PedidoParaLlevar");
+            const infDoc = await getDoc(infRed);
+            const infoData = infDoc.data();
+            setModuloActivado(infoData.activado);
+        } catch {
+            console.log("Error al cargar sobre datos")
+        }
+    }
 
     const generarCodigoPedido = () => {
         return Math.floor(1000 + Math.random() * 9000); // Genera número entre 1000 y 9999
@@ -68,13 +80,12 @@ function ClientesPedidos() {
             }));
 
             const hoy = new Date();
-
             const promocionesVigentes = [];
 
             for (const promo of promocionesData) {
-                // 1. Validar si está vigente
                 let esVigente = false;
 
+                // 1. Validar vigencia
                 if (promo.esSemanal) {
                     const diaSemana = hoy.getDay(); // 0=Domingo
                     const diasActivos = [
@@ -95,12 +106,12 @@ function ClientesPedidos() {
 
                 if (!esVigente) continue;
 
-                // 2. Validar platillos según tipo
-                const platillos = promo.platillos || []; // Asume que promo tiene un campo `platillos` con array de IDs
+                const platillos = promo.platillos || [];
                 if (platillos.length === 0) continue;
 
+                // 2. Cargar platillos asociados
                 const platillosSnap = await Promise.all(
-                    platillos.map(pid => getDoc(doc(db, "menu", pid)))
+                    platillos.map(pid => getDoc(doc(db, "menu", pid.id)))
                 );
 
                 const bloqueados = platillosSnap.filter(doc => {
@@ -108,14 +119,25 @@ function ClientesPedidos() {
                     return data?.bloqueo;
                 });
 
+                const inactivos = platillosSnap.filter(doc => {
+                    const data = doc.data();
+                    return !data?.estatus;
+                });
+
+                // 3. Validar según tipo
                 if (
                     (promo.tipo === 0 || promo.tipo === 1) &&
-                    bloqueados.length < platillos.length // al menos uno no bloqueado
+                    bloqueados.length < platillos.length &&
+                    inactivos.length < platillos.length
                 ) {
                     promocionesVigentes.push(promo);
                 }
 
-                if (promo.tipo === 2 && bloqueados.length === 0) {
+                if (
+                    promo.tipo === 2 &&
+                    bloqueados.length === 0 &&
+                    inactivos.length === 0
+                ) {
                     promocionesVigentes.push(promo);
                 }
             }
@@ -125,7 +147,6 @@ function ClientesPedidos() {
             console.error("Error obteniendo promociones:", error);
         }
     };
-
 
     const handleEditarPlatillo = (index) => {
         let platilloAEditar;
@@ -627,7 +648,6 @@ function ClientesPedidos() {
         for (let i = 0; i < 15; i++) {
             idDinamico += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
         }
-        setIdPedido(idDinamico.slice(-4))
 
         const nuevoPedido = {
             mesaId: idDinamico,
@@ -668,8 +688,9 @@ function ClientesPedidos() {
                 fecha: serverTimestamp()
             };
 
-            await addDoc(pedidoRef, pedidoCompleto);
-            alert(`Pedido enviado correctamente. Tu pedido es el ${idPedidos} y el código de pedido es: ${codigoPedido}`);
+            const docRef = await addDoc(pedidoRef, pedidoCompleto);
+            const idPedido = docRef.id.slice(-5);
+            alert(`Pedido enviado correctamente. Tu pedido es el ${idPedido} y el código de pedido es: ${codigoPedido}`);
 
             // Resetear estados
             setPlatillosSeleccionados([]);
@@ -699,218 +720,199 @@ function ClientesPedidos() {
         promocionesMatriz.push(promociones.slice(j, j + 6));
     }
 
-    return (
-        <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
-            {/* Mostrar solo PayPal durante el proceso de pago */}
-            {showPayPalButtons && orderReadyToSubmit ? (
-                <div>
-                    {mostrarFormularioCliente ? (
-                        <div style={{
-                            maxWidth: "500px",
-                            padding: "20px",
-                            border: "1px solid #ddd",
-                            borderRadius: "8px",
-                            backgroundColor: "#fff",
-                            margin: "20px auto"
-                        }}>
-                            <h3>Información para el pedido para llevar</h3>
-
-                            <div style={{ marginBottom: "15px" }}>
-                                <label>Nombre:</label>
-                                <input
-                                    type="text"
-                                    value={nombreCliente}
-                                    onChange={(e) => setNombreCliente(e.target.value)}
-                                    style={{ width: "100%", padding: "8px" }}
-                                    required
-                                />
-                            </div>
-
-                            <div style={{ marginBottom: "15px" }}>
-                                <label>Teléfono:</label>
-                                <input
-                                    type="tel"
-                                    value={telefonoCliente}
-                                    onChange={(e) => setTelefonoCliente(e.target.value)}
-                                    style={{ width: "100%", padding: "8px" }}
-                                    required
-                                />
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button
-                                    onClick={() => (setMostrarFormularioCliente(false), setShowPayPalButtons(false))}
-                                    style={{
-                                        padding: "10px 20px",
-                                        backgroundColor: "#6c757d",
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "4px",
-                                        cursor: "pointer",
-                                        flex: 1
-                                    }}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (!nombreCliente.trim()) {
-                                            alert("Por favor ingresa tu nombre");
-                                            return;
-                                        }
-                                        if (!telefonoCliente.trim()) {
-                                            alert("Por favor ingresa tu teléfono");
-                                            return;
-                                        }
-                                        // Proceder con el pago
-                                        if (telefonoCliente.length < 10 || telefonoCliente.length > 10) {
-                                            alert("Por favor introdusca un numero de telefono valido")
-                                            return;
-                                        }
-                                        setShowPayPalButtons(true);
-                                        setMostrarFormularioCliente(false);
-                                    }}
-                                    style={{
-                                        padding: "10px 20px",
-                                        backgroundColor: "#28a745",
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "4px",
-                                        cursor: "pointer",
-                                        flex: 1
-                                    }}
-                                >
-                                    Continuar al Pago
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            height: '100vh'
-                        }}>
-                            <h2 style={{ marginBottom: '20px' }}>Procesando pago para mesa {orderReadyToSubmit.mesaNombre}</h2>
+    if (moduloActivado) {
+        return (
+            <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
+                {/* Mostrar solo PayPal durante el proceso de pago */}
+                {showPayPalButtons && orderReadyToSubmit ? (
+                    <div>
+                        {mostrarFormularioCliente ? (
                             <div style={{
-                                maxWidth: "750px",
-                                minHeight: "200px",
-                                width: "100%",
+                                maxWidth: "500px",
                                 padding: "20px",
                                 border: "1px solid #ddd",
                                 borderRadius: "8px",
                                 backgroundColor: "#fff",
-                                boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+                                margin: "20px auto"
                             }}>
-                                <PayPalScriptProvider options={{
-                                    "client-id": "AXJc1hoAdWHOAEP8_fUVjFqHXpdad6fCZGEbu6lRRfgfdZ3buAdxoYM4ACOxMxdb1_aG3HsKmC5uBKoq",
-                                    currency: "MXN"
-                                }}>
-                                    <PayPalButtons
-                                        style={{ layout: "vertical" }}
-                                        createOrder={(data, actions) => {
-                                            return actions.order.create({
-                                                purchase_units: [
-                                                    {
-                                                        amount: {
-                                                            value: orderReadyToSubmit.total.toFixed(2),
-                                                            currency_code: "MXN"
-                                                        },
-                                                        description: `Pedido para mesa ${orderReadyToSubmit.mesaNombre}`
-                                                    }
-                                                ]
-                                            });
-                                        }}
-                                        onApprove={(data, actions) => {
-                                            return actions.order.capture().then(() => {
-                                                enviarPedidoAFirebase();
-                                            });
-                                        }}
-                                        onError={(err) => {
-                                            console.error("Error en el pago con PayPal:", err);
-                                            alert("Ocurrió un error al procesar el pago");
-                                            setShowPayPalButtons(false);
-                                        }}
-                                        onCancel={() => {
-                                            alert("Pago cancelado");
-                                            setShowPayPalButtons(false);
-                                        }}
+                                <h3>Información para el pedido para llevar</h3>
+
+                                <div style={{ marginBottom: "15px" }}>
+                                    <label>Nombre:</label>
+                                    <input
+                                        type="text"
+                                        value={nombreCliente}
+                                        onChange={(e) => setNombreCliente(e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                        required
                                     />
-                                </PayPalScriptProvider>
+                                </div>
+
+                                <div style={{ marginBottom: "15px" }}>
+                                    <label>Teléfono:</label>
+                                    <input
+                                        type="tel"
+                                        value={telefonoCliente}
+                                        onChange={(e) => setTelefonoCliente(e.target.value)}
+                                        style={{ width: "100%", padding: "8px" }}
+                                        required
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                        onClick={() => (setMostrarFormularioCliente(false), setShowPayPalButtons(false))}
+                                        style={{
+                                            padding: "10px 20px",
+                                            backgroundColor: "#6c757d",
+                                            color: "white",
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            cursor: "pointer",
+                                            flex: 1
+                                        }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (!nombreCliente.trim()) {
+                                                alert("Por favor ingresa tu nombre");
+                                                return;
+                                            }
+                                            if (!telefonoCliente.trim()) {
+                                                alert("Por favor ingresa tu teléfono");
+                                                return;
+                                            }
+                                            // Proceder con el pago
+                                            if (telefonoCliente.length < 10 || telefonoCliente.length > 10) {
+                                                alert("Por favor introdusca un numero de telefono valido")
+                                                return;
+                                            }
+                                            setShowPayPalButtons(true);
+                                            setMostrarFormularioCliente(false);
+                                        }}
+                                        style={{
+                                            padding: "10px 20px",
+                                            backgroundColor: "#28a745",
+                                            color: "white",
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            cursor: "pointer",
+                                            flex: 1
+                                        }}
+                                    >
+                                        Continuar al Pago
+                                    </button>
+                                </div>
                             </div>
+                        ) : (
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '100vh'
+                            }}>
+                                <h2 style={{ marginBottom: '20px' }}>Procesando pago para mesa {orderReadyToSubmit.mesaNombre}</h2>
+                                <div style={{
+                                    maxWidth: "750px",
+                                    minHeight: "200px",
+                                    width: "100%",
+                                    padding: "20px",
+                                    border: "1px solid #ddd",
+                                    borderRadius: "8px",
+                                    backgroundColor: "#fff",
+                                    boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+                                }}>
+                                    <PayPalScriptProvider options={{
+                                        "client-id": "AXJc1hoAdWHOAEP8_fUVjFqHXpdad6fCZGEbu6lRRfgfdZ3buAdxoYM4ACOxMxdb1_aG3HsKmC5uBKoq",
+                                        currency: "MXN"
+                                    }}>
+                                        <PayPalButtons
+                                            style={{ layout: "vertical" }}
+                                            createOrder={(data, actions) => {
+                                                return actions.order.create({
+                                                    purchase_units: [
+                                                        {
+                                                            amount: {
+                                                                value: orderReadyToSubmit.total.toFixed(2),
+                                                                currency_code: "MXN"
+                                                            },
+                                                            description: `Pedido para mesa ${orderReadyToSubmit.mesaNombre}`
+                                                        }
+                                                    ]
+                                                });
+                                            }}
+                                            onApprove={(data, actions) => {
+                                                return actions.order.capture().then(() => {
+                                                    enviarPedidoAFirebase();
+                                                });
+                                            }}
+                                            onError={(err) => {
+                                                console.error("Error en el pago con PayPal:", err);
+                                                alert("Ocurrió un error al procesar el pago");
+                                                setShowPayPalButtons(false);
+                                            }}
+                                            onCancel={() => {
+                                                alert("Pago cancelado");
+                                                setShowPayPalButtons(false);
+                                            }}
+                                        />
+                                    </PayPalScriptProvider>
+                                </div>
+
+                                <button
+                                    onClick={() => setShowPayPalButtons(false)}
+                                    style={{
+                                        marginTop: '20px',
+                                        padding: '10px 20px',
+                                        backgroundColor: '#f44336',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancelar y volver al pedido
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    /* Mostrar la interfaz normal cuando no estamos en proceso de pago */
+                    <div style={{ padding: "20px", width: "80vw", margin: "0 auto" }}>
+                        {/* Mesero mesa y boton enviar pedido */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
+                            <h3>Sadraka</h3>
 
                             <button
-                                onClick={() => setShowPayPalButtons(false)}
+                                onClick={prepararPedido}
+                                disabled={(platillosSeleccionados.length === 0 && carritoPromociones.length === 0) || !mesa.id || enviandoPedido}
                                 style={{
-                                    marginTop: '20px',
-                                    padding: '10px 20px',
-                                    backgroundColor: '#f44336',
+                                    padding: '8px 15px',
+                                    backgroundColor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesa.id ? '#28a745' : '#cccccc',
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: '4px',
-                                    cursor: 'pointer'
+                                    cursor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesa.id ? 'pointer' : 'not-allowed',
+                                    margin: '10px'
                                 }}
                             >
-                                Cancelar y volver al pedido
+                                {enviandoPedido ? 'Preparando...' : 'Proceder al Pago'}
                             </button>
                         </div>
-                    )}
-                </div>
-            ) : (
-                /* Mostrar la interfaz normal cuando no estamos en proceso de pago */
-                <div style={{ padding: "20px", width: "80vw", margin: "0 auto" }}>
-                    {/* Mesero mesa y boton enviar pedido */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
-                        <h3>Sadraka</h3>
 
-                        <button
-                            onClick={prepararPedido}
-                            disabled={(platillosSeleccionados.length === 0 && carritoPromociones.length === 0) || !mesa.id || enviandoPedido}
-                            style={{
-                                padding: '8px 15px',
-                                backgroundColor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesa.id ? '#28a745' : '#cccccc',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: (platillosSeleccionados.length > 0 || carritoPromociones.length > 0) && mesa.id ? 'pointer' : 'not-allowed',
-                                margin: '10px'
-                            }}
-                        >
-                            {enviandoPedido ? 'Preparando...' : 'Proceder al Pago'}
-                        </button>
-                    </div>
-
-                    {/* Matriz de secciones (6 columnas) */}
-                    {!seccionSeleccionada && !seleccionarPromociones && (
-                        <div style={{ marginBottom: "30px" }}>
-                            <h3>Seleccione una sección:</h3>
-                            {seccionesMatriz.map((fila, index) => (
-                                <div key={index} style={{ display: 'flex', marginBottom: '10px' }}>
-                                    {fila.map(seccion => (
-                                        <button
-                                            key={seccion.id}
-                                            onClick={() => handleSeleccionarSeccion(seccion.id, seccion.nombre)}
-                                            style={{
-                                                flex: 1,
-                                                margin: '0 5px',
-                                                padding: '10px',
-                                                backgroundColor: '#4CAF50',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer',
-                                                minWidth: '100px'
-                                            }}
-                                        >
-                                            {seccion.nombre}
-                                        </button>
-                                    ))}
-                                    {
-                                        promociones.length > 0 && (
+                        {/* Matriz de secciones (6 columnas) */}
+                        {!seccionSeleccionada && !seleccionarPromociones && (
+                            <div style={{ marginBottom: "30px" }}>
+                                <h3>Seleccione una sección:</h3>
+                                {seccionesMatriz.map((fila, index) => (
+                                    <div key={index} style={{ display: 'flex', marginBottom: '10px' }}>
+                                        {fila.map(seccion => (
                                             <button
-                                                key={1234567890}
-                                                onClick={() => setSeleccionarPromociones(true)}
+                                                key={seccion.id}
+                                                onClick={() => handleSeleccionarSeccion(seccion.id, seccion.nombre)}
                                                 style={{
                                                     flex: 1,
                                                     margin: '0 5px',
@@ -923,172 +925,534 @@ function ClientesPedidos() {
                                                     minWidth: '100px'
                                                 }}
                                             >
-                                                Promociones del dia
+                                                {seccion.nombre}
                                             </button>
-                                        )
-                                    }
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Lista de platillos de la sección seleccionada */}
-                    {seccionSeleccionada && !platilloEdicion && (
-                        <div style={{ marginBottom: "30px" }}>
-                            <h3>Platillos de la sección: {seccionSeleccionada.nombre} </h3>
-                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <button
-                                    onClick={() => setSeccionSeleccionada(null)}
-                                    style={{
-                                        padding: '10px 15px',
-                                        backgroundColor: '#f44336',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Volver a secciones
-                                </button>
-                            </div>
-
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                                gap: '10px',
-                                marginTop: '15px'
-                            }}>
-                                {platillosFiltrados.map(platillo => (
-                                    platillo.bloqueo != true && platillo.estatus == true && (
-                                        <button
-                                            onClick={() => handleSeleccionarPlatillo(platillo.id)}
-                                            key={platillo.id}
-                                            style={{
-                                                backgroundColor: '#007bff',
-                                                color: 'white',
-                                                border: 'none',
-                                                padding: '10px',
-                                                borderRadius: '5px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <p>{platillo.nombre}</p>
-                                            <p>${platillo.precio}</p>
-                                        </button>
-                                    )
+                                        ))}
+                                        {
+                                            promociones.length > 0 && (
+                                                <button
+                                                    key={1234567890}
+                                                    onClick={() => setSeleccionarPromociones(true)}
+                                                    style={{
+                                                        flex: 1,
+                                                        margin: '0 5px',
+                                                        padding: '10px',
+                                                        backgroundColor: '#4CAF50',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        minWidth: '100px'
+                                                    }}
+                                                >
+                                                    Promociones del dia
+                                                </button>
+                                            )
+                                        }
+                                    </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Matriz de promociones */}
-                    {seleccionarPromociones && !personalizarPlatilloPromo && !promocionSeleccionada && (
-                        <div style={{ marginBottom: "30px" }}>
-                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <button
-                                    onClick={() => setSeleccionarPromociones(false)}
-                                    style={{
-                                        padding: '10px 15px',
-                                        backgroundColor: '#f44336',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Volver a secciones
-                                </button>
-                            </div>
-
-                            <h3>Seleccione una promocion:</h3>
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                                gap: '10px',
-                                marginTop: '15px'
-                            }}>
-                                {promociones.map(promo => (
+                        {/* Lista de platillos de la sección seleccionada */}
+                        {seccionSeleccionada && !platilloEdicion && (
+                            <div style={{ marginBottom: "30px" }}>
+                                <h3>Platillos de la sección: {seccionSeleccionada.nombre} </h3>
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                     <button
-                                        key={promo.id}
-                                        onClick={() => handleSeleccionarPromocion(promo)}
+                                        onClick={() => setSeccionSeleccionada(null)}
                                         style={{
-                                            flex: 1,
-                                            margin: '0 5px',
-                                            padding: '10px',
-                                            backgroundColor: '#4CAF50',
+                                            padding: '10px 15px',
+                                            backgroundColor: '#f44336',
                                             color: 'white',
                                             border: 'none',
                                             borderRadius: '4px',
-                                            cursor: 'pointer',
-                                            minWidth: '100px'
+                                            cursor: 'pointer'
                                         }}
                                     >
-                                        {promo.nombre}
-                                        <p>{promo.tipo == 0 ? "2x1" :
-                                            (promo.tipo == 1 ? "3x2" : ("$" + promo.precio))}</p>
+                                        Volver a secciones
                                     </button>
-                                ))}
+                                </div>
+
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                    gap: '10px',
+                                    marginTop: '15px'
+                                }}>
+                                    {platillosFiltrados.map(platillo => (
+                                        platillo.bloqueo != true && platillo.estatus == true && (
+                                            <button
+                                                onClick={() => handleSeleccionarPlatillo(platillo.id)}
+                                                key={platillo.id}
+                                                style={{
+                                                    backgroundColor: '#007bff',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    padding: '10px',
+                                                    borderRadius: '5px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <p>{platillo.nombre}</p>
+                                                <p>${platillo.precio}</p>
+                                            </button>
+                                        )
+                                    ))}
+                                </div>
                             </div>
+                        )}
 
-                        </div>
-                    )}
+                        {/* Matriz de promociones */}
+                        {seleccionarPromociones && !personalizarPlatilloPromo && !promocionSeleccionada && (
+                            <div style={{ marginBottom: "30px" }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    <button
+                                        onClick={() => setSeleccionarPromociones(false)}
+                                        style={{
+                                            padding: '10px 15px',
+                                            backgroundColor: '#f44336',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Volver a secciones
+                                    </button>
+                                </div>
 
-                    {/* Seleccionar platillos promociones 2x1 y 3x2 */}
-                    {seleccionarPlatillosPromocion && !platilloActual && (
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <button
-                                    onClick={() => (setSeleccionarPlatillosPromocion(false),
-                                        setPromocionSeleccionada(null),
-                                        handleResetSoft()
-                                    )}
-                                    style={{
-                                        padding: '10px 15px',
-                                        backgroundColor: '#f44336',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Volver a promociones
-                                </button>
+                                <h3>Seleccione una promocion:</h3>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                    gap: '10px',
+                                    marginTop: '15px'
+                                }}>
+                                    {promociones.map(promo => (
+                                        <button
+                                            key={promo.id}
+                                            onClick={() => handleSeleccionarPromocion(promo)}
+                                            style={{
+                                                flex: 1,
+                                                margin: '0 5px',
+                                                padding: '10px',
+                                                backgroundColor: '#4CAF50',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                minWidth: '100px'
+                                            }}
+                                        >
+                                            {promo.nombre}
+                                            <p>{promo.tipo == 0 ? "2x1" :
+                                                (promo.tipo == 1 ? "3x2" : ("$" + promo.precio))}</p>
+                                        </button>
+                                    ))}
+                                </div>
+
                             </div>
+                        )}
 
-                            {(promocionSeleccionada.tipo == 0 || promocionSeleccionada.tipo == 1) && (
-                                <div>
-                                    <h3>Seleccione {promocionSeleccionada == 1 ? "2" : "3"} platillos:</h3>
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                                        gap: '10px',
-                                        marginTop: '15px'
-                                    }}>
-                                        {platillosFiltrados.map(platillo => (
-                                            platillo.bloqueo != true && platillo.estatus == true && (
+                        {/* Seleccionar platillos promociones 2x1 y 3x2 */}
+                        {seleccionarPlatillosPromocion && !platilloActual && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    <button
+                                        onClick={() => (setSeleccionarPlatillosPromocion(false),
+                                            setPromocionSeleccionada(null),
+                                            handleResetSoft()
+                                        )}
+                                        style={{
+                                            padding: '10px 15px',
+                                            backgroundColor: '#f44336',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Volver a promociones
+                                    </button>
+                                </div>
+
+                                {(promocionSeleccionada.tipo == 0 || promocionSeleccionada.tipo == 1) && (
+                                    <div>
+                                        <h3>Seleccione {promocionSeleccionada == 1 ? "2" : "3"} platillos:</h3>
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                            gap: '10px',
+                                            marginTop: '15px'
+                                        }}>
+                                            {platillosFiltrados.map(platillo => (
+                                                platillo.bloqueo != true && platillo.estatus == true && (
+                                                    <button
+                                                        onClick={() => handleSeleccionarPlatilloPromociones(platillo.id)}
+                                                        key={platillo.id}
+                                                        style={{
+                                                            backgroundColor: '#007bff',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            padding: '10px',
+                                                            borderRadius: '5px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <p>{platillo.nombre}</p>
+                                                        <p>${platillo.precio}</p>
+                                                    </button>
+                                                )
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+
+                                {platillosPromocion.map((platillo, index) => (
+                                    <li
+                                        key={`${index}-${Date.now()}`} // Mejor clave única
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '10px',
+                                            borderBottom: '1px solid #eee'
+                                        }}
+                                    >
+                                        <div>
+                                            <span>{platillo.nombre} - ${platillo.precio}</span> <br />
+                                            {platillo.descripcion}
+                                        </div>
+                                        <div>
+                                            <button
+                                                onClick={() => (handleEditarPlatillo(index),
+                                                    setPersonalizarPlatilloPromo(true))}
+                                                style={{
+                                                    padding: '5px 10px',
+                                                    backgroundColor: '#f44336',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Editar
+                                            </button>
+                                            {promocionSeleccionada.tipo != 2 && (
                                                 <button
-                                                    onClick={() => handleSeleccionarPlatilloPromociones(platillo.id)}
-                                                    key={platillo.id}
+                                                    onClick={() => handleQuitarPlatilloPromociones(index)}
                                                     style={{
-                                                        backgroundColor: '#007bff',
+                                                        padding: '5px 10px',
+                                                        backgroundColor: '#f44336',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Quitar
+                                                </button>
+                                            )}
+                                        </div>
+                                    </li>))}
+                                {((promocionSeleccionada.tipo == 2) ||
+                                    (promocionSeleccionada.tipo == 1 && platillosPromocion.length == 3) ||
+                                    (promocionSeleccionada.tipo == 0 && platillosPromocion.length == 2)) && (
+                                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+                                            <button
+                                                onClick={() => {
+                                                    // Calcular precio total según tipo de promoción incluyendo extras
+                                                    let precioTotal = 0;
+                                                    let preciosPlatillos = [];
+
+                                                    // Calcular el precio de cada platillo incluyendo sus extras
+                                                    platillosPromocion.forEach(platillo => {
+                                                        let precioPlatillo = platillo.precio;
+
+                                                        // Sumar extras si existen
+                                                        if (platillo.extras && platillo.extras.length > 0) {
+                                                            precioPlatillo += platillo.extras.reduce((sum, extra) => sum + extra.precio, 0);
+                                                        }
+
+                                                        // Sumar complemento si existe
+                                                        if (platillo.complemento && platillo.complemento.precio) {
+                                                            precioPlatillo += platillo.complemento.precio;
+                                                        }
+
+                                                        preciosPlatillos.push(precioPlatillo);
+                                                    });
+
+                                                    if (promocionSeleccionada.tipo === 0) { // 2x1
+                                                        // Tomar el platillo más caro (con extras) como pago
+                                                        precioTotal = Math.max(...preciosPlatillos);
+                                                    }
+                                                    else if (promocionSeleccionada.tipo === 1) { // 3x2
+                                                        // Ordenar de mayor a menor y sumar los 2 más caros (con extras)
+                                                        const sorted = [...preciosPlatillos].sort((a, b) => b - a);
+                                                        precioTotal = sorted[0] + sorted[1];
+                                                    }
+                                                    else { // Promoción por paquete (tipo 2)
+                                                        // El precio fijo de la promoción más los extras de cada platillo
+                                                        precioTotal = promocionSeleccionada.precio;
+                                                        // Sumar todos los extras de los platillos de la promoción
+                                                        const totalExtras = platillosPromocion.reduce((sum, platillo) => {
+                                                            let extrasPlatillo = 0;
+                                                            if (platillo.extras && platillo.extras.length > 0) {
+                                                                extrasPlatillo += platillo.extras.reduce((sumExtra, extra) => sumExtra + extra.precio, 0);
+                                                            }
+                                                            return sum + extrasPlatillo;
+                                                        }, 0);
+                                                        precioTotal += totalExtras;
+                                                    }
+
+                                                    const promocionParaPedido = {
+                                                        idPromocion: promocionSeleccionada.id,
+                                                        nombre: promocionSeleccionada.nombre,
+                                                        platillos: platillosPromocion,
+                                                        precio: precioTotal,
+                                                        tipo: promocionSeleccionada.tipo,
+                                                        descripcion: "Promoción aplicada",
+                                                        completado: false
+                                                    };
+
+                                                    if (editandoPromo) {
+                                                        setCarritoPromociones(prev =>
+                                                            prev.map((item, index) =>
+                                                                index === editandoPromoIndex ? promocionParaPedido : item
+                                                            )
+                                                        );
+                                                    } else {
+                                                        setCarritoPromociones(prev => [...prev, promocionParaPedido]);
+                                                    }
+                                                    setPlatillosPromocion([]);
+                                                    setPromocionSeleccionada(null);
+                                                    setSeleccionarPlatillosPromocion(false);
+                                                    handleResetSoft();
+                                                }}
+                                                style={{
+                                                    padding: '10px 20px',
+                                                    backgroundColor: '#28a745',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '16px'
+                                                }}
+                                            >
+                                                {editandoPromo ? "Editar promoción" : "Agregar Promoción al Pedido"}
+                                            </button>
+                                        </div>
+                                    )}
+                            </div>
+
+                        )}
+
+                        {/* Detalles del platillo seleccionado */}
+                        {platilloEdicion && platilloActual && (
+                            <div style={{ marginBottom: "30px", }}>
+                                <h3>{platilloActual.nombre}</h3>
+                                <p>Precio: ${platilloActual.precio}</p>
+
+                                <h4>Ingredientes:</h4>
+                                {platilloActual.ingredientes.map(ingrediente => (
+                                    ingrediente.visible ? (<button
+                                        onClick={() => (handleIngredientes(ingrediente)
+                                        )}
+                                        key={ingrediente.id}
+                                        style={{
+                                            backgroundColor: listaIngredientes.find(ing => ing.id === ingrediente.id) ?
+                                                'red' : '#007bff',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '10px',
+                                            borderRadius: '5px',
+                                            cursor: 'pointer',
+                                            margin: '5px'
+                                        }}
+                                    >
+                                        <p>{ingrediente.nombre}</p>
+                                    </button>) : ""
+                                ))}
+
+                                <br />
+
+                                {complementosPlatillo.length > 0 && (
+                                    <div>
+                                        <h4>Complementos:</h4>
+                                        <select
+                                            onChange={handleComplementoChange}
+                                            value={complementoSeleccionado?.id || ""}
+                                            style={{ marginBottom: "15px", padding: "8px" }}
+                                        >
+                                            <option value="">Seleccione un complemento</option>
+                                            {complementosPlatillo.map((comp) => (
+                                                <option key={comp.id} value={comp.id}>
+                                                    {comp.nombre}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <br />
+
+                                {extrasPlatillo.length > 0 && (
+                                    <div>
+                                        <h4>Extras:</h4>
+                                        {
+                                            extrasPlatillo.map(extra => (
+                                                <button
+                                                    onClick={() => (handleExtras(extra)
+                                                    )}
+                                                    key={extra.id}
+                                                    style={{
+                                                        backgroundColor: listaExtra.find(ext => ext.id === extra.id) ?
+                                                            'green' : '#007bff',
                                                         color: 'white',
                                                         border: 'none',
                                                         padding: '10px',
                                                         borderRadius: '5px',
-                                                        cursor: 'pointer'
+                                                        cursor: 'pointer',
+                                                        margin: '5px'
                                                     }}
                                                 >
-                                                    <p>{platillo.nombre}</p>
-                                                    <p>${platillo.precio}</p>
+                                                    <p>{extra.nombre}</p>
+                                                    <p>${extra.precio}</p>
                                                 </button>
-                                            )
-                                        ))}
+
+                                            ))
+                                        }
                                     </div>
+                                )}
+
+                                <div style={{ marginBottom: "15px" }}>
+                                    <label>Comentarios:</label>
+                                    <textarea
+                                        value={descripcion}
+                                        onChange={(e) => setDescripcion(e.target.value)}
+                                        required
+                                        style={{ width: "100%", padding: "8px" }}
+                                    />
                                 </div>
-                            )}
 
+                                {!personalizarPlatilloPromo && (
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: "center" }}>
+                                        <button
+                                            disabled={true}
+                                            style={{
+                                                padding: '10px 15px',
+                                                backgroundColor: 'transparent',
+                                                color: 'black',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                            }}
+                                        >
+                                            cantidad:
+                                        </button>
 
-                            {platillosPromocion.map((platillo, index) => (
+                                        <button
+                                            onClick={() => setCantidad(cantidad - 1)}
+                                            disabled={cantidad <= 1}
+                                            style={{
+                                                padding: '10px 15px',
+                                                backgroundColor: '#007bff',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            -
+                                        </button>
+
+                                        <button
+                                            disabled={true}
+                                            style={{
+                                                padding: '10px 15px',
+                                                backgroundColor: 'transparent',
+                                                color: 'black',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                            }}
+                                        >
+                                            {cantidad}
+                                        </button>
+
+                                        <button
+                                            onClick={() => setCantidad(cantidad + 1)}
+                                            style={{
+                                                padding: '10px 15px',
+                                                backgroundColor: '#007bff',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                            }}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                )}
+
+                                <br />
+
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: "center" }}>
+                                    {
+                                        personalizarPlatilloPromo == true ? (
+                                            <button
+                                                onClick={() => (setPlatilloActual(null), setPersonalizarPlatilloPromo(false)
+                                                )}
+                                                style={{
+                                                    padding: '10px 15px',
+                                                    backgroundColor: '#6c757d',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Volver a promociones
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => (setPlatilloEdicion(false),
+                                                    handleReset()
+                                                )}
+                                                style={{
+                                                    padding: '10px 15px',
+                                                    backgroundColor: '#6c757d',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Volver a platillos
+                                            </button>
+                                        )
+                                    }
+
+                                    <button
+                                        onClick={editandoIndex !== null ? handleActualizarPlatillo : handleAgregarAlPedido}
+                                        style={{
+                                            padding: '10px 15px',
+                                            backgroundColor: '#28a745',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {editandoIndex !== null ? 'Modificar platillo' : 'Agregar al pedido'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Lista de platillos seleccionados (carrito) */}
+                        {!editandoIndex && (
+                            platillosSeleccionados.map((platillo, index) => (
                                 <li
                                     key={`${index}-${Date.now()}`} // Mejor clave única
                                     style={{
@@ -1100,13 +1464,26 @@ function ClientesPedidos() {
                                     }}
                                 >
                                     <div>
-                                        <span>{platillo.nombre} - ${platillo.precio}</span> <br />
-                                        {platillo.descripcion}
+                                        <span>{platillo.nombre} - ${platillo.precio} | Cantidad: {platillo.cantidad}</span>
+                                        {platillo.descripcion && <div>Notas: {platillo.descripcion}</div>}
                                     </div>
                                     <div>
                                         <button
-                                            onClick={() => (handleEditarPlatillo(index),
-                                                setPersonalizarPlatilloPromo(true))}
+                                            onClick={() => handleEditarPlatillo(index)}
+                                            style={{
+                                                padding: '5px 10px',
+                                                backgroundColor: '#ffc107',
+                                                color: 'black',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                marginRight: '5px'
+                                            }}
+                                        >
+                                            Editar
+                                        </button>
+                                        <button
+                                            onClick={() => handleQuitarPlatillo(index)}
                                             style={{
                                                 padding: '5px 10px',
                                                 backgroundColor: '#f44336',
@@ -1116,421 +1493,79 @@ function ClientesPedidos() {
                                                 cursor: 'pointer'
                                             }}
                                         >
-                                            Editar
+                                            Quitar
                                         </button>
-                                        {promocionSeleccionada.tipo != 2 && (
-                                            <button
-                                                onClick={() => handleQuitarPlatilloPromociones(index)}
-                                                style={{
-                                                    padding: '5px 10px',
-                                                    backgroundColor: '#f44336',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                Quitar
-                                            </button>
-                                        )}
                                     </div>
-                                </li>))}
-                            {((promocionSeleccionada.tipo == 2) ||
-                                (promocionSeleccionada.tipo == 1 && platillosPromocion.length == 3) ||
-                                (promocionSeleccionada.tipo == 0 && platillosPromocion.length == 2)) && (
-                                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+                                </li>
+                            )))}
+
+                        {/* Lista de promociones seleccionadas (carrito 2) */}
+                        {!editandoIndex && (
+                            carritoPromociones.map((promocionC, index) => (
+                                <li
+                                    key={`${index}-${Date.now()}`} // Mejor clave única
+                                    style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: '10px',
+                                        borderBottom: '1px solid #eee'
+                                    }}
+                                >
+                                    <div>
+                                        <span>{promocionC.nombre} - ${promocionC.precio}</span>
+                                    </div>
+                                    <div>
                                         <button
-                                            onClick={() => {
-                                                // Calcular precio total según tipo de promoción incluyendo extras
-                                                let precioTotal = 0;
-                                                let preciosPlatillos = [];
-
-                                                // Calcular el precio de cada platillo incluyendo sus extras
-                                                platillosPromocion.forEach(platillo => {
-                                                    let precioPlatillo = platillo.precio;
-
-                                                    // Sumar extras si existen
-                                                    if (platillo.extras && platillo.extras.length > 0) {
-                                                        precioPlatillo += platillo.extras.reduce((sum, extra) => sum + extra.precio, 0);
-                                                    }
-
-                                                    // Sumar complemento si existe
-                                                    if (platillo.complemento && platillo.complemento.precio) {
-                                                        precioPlatillo += platillo.complemento.precio;
-                                                    }
-
-                                                    preciosPlatillos.push(precioPlatillo);
-                                                });
-
-                                                if (promocionSeleccionada.tipo === 0) { // 2x1
-                                                    // Tomar el platillo más caro (con extras) como pago
-                                                    precioTotal = Math.max(...preciosPlatillos);
-                                                }
-                                                else if (promocionSeleccionada.tipo === 1) { // 3x2
-                                                    // Ordenar de mayor a menor y sumar los 2 más caros (con extras)
-                                                    const sorted = [...preciosPlatillos].sort((a, b) => b - a);
-                                                    precioTotal = sorted[0] + sorted[1];
-                                                }
-                                                else { // Promoción por paquete (tipo 2)
-                                                    // El precio fijo de la promoción más los extras de cada platillo
-                                                    precioTotal = promocionSeleccionada.precio;
-                                                    // Sumar todos los extras de los platillos de la promoción
-                                                    const totalExtras = platillosPromocion.reduce((sum, platillo) => {
-                                                        let extrasPlatillo = 0;
-                                                        if (platillo.extras && platillo.extras.length > 0) {
-                                                            extrasPlatillo += platillo.extras.reduce((sumExtra, extra) => sumExtra + extra.precio, 0);
-                                                        }
-                                                        return sum + extrasPlatillo;
-                                                    }, 0);
-                                                    precioTotal += totalExtras;
-                                                }
-
-                                                const promocionParaPedido = {
-                                                    idPromocion: promocionSeleccionada.id,
-                                                    nombre: promocionSeleccionada.nombre,
-                                                    platillos: platillosPromocion,
-                                                    precio: precioTotal,
-                                                    tipo: promocionSeleccionada.tipo,
-                                                    descripcion: "Promoción aplicada",
-                                                    completado: false
-                                                };
-
-                                                if (editandoPromo) {
-                                                    setCarritoPromociones(prev =>
-                                                        prev.map((item, index) =>
-                                                            index === editandoPromoIndex ? promocionParaPedido : item
-                                                        )
-                                                    );
-                                                } else {
-                                                    setCarritoPromociones(prev => [...prev, promocionParaPedido]);
-                                                }
-                                                setPlatillosPromocion([]);
-                                                setPromocionSeleccionada(null);
-                                                setSeleccionarPlatillosPromocion(false);
-                                                handleResetSoft();
-                                            }}
+                                            onClick={() => (handleEditarPromocion(promocionC, index)
+                                            )}
                                             style={{
-                                                padding: '10px 20px',
-                                                backgroundColor: '#28a745',
-                                                color: 'white',
+                                                padding: '5px 10px',
+                                                backgroundColor: '#ffc107',
+                                                color: 'black',
                                                 border: 'none',
                                                 borderRadius: '4px',
                                                 cursor: 'pointer',
-                                                fontSize: '16px'
+                                                marginRight: '5px'
                                             }}
                                         >
-                                            {editandoPromo ? "Editar promoción" : "Agregar Promoción al Pedido"}
+                                            Editar
+                                        </button>
+                                        <button
+                                            onClick={() => handleQuitarPromoCarrito(index)}
+                                            style={{
+                                                padding: '5px 10px',
+                                                backgroundColor: '#f44336',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Quitar
                                         </button>
                                     </div>
-                                )}
-                        </div>
+                                </li>
+                            )))
+                        }
 
-                    )}
+                    </div>
+                )}
+            </div>
+        )
+    } else {
+        return (
+            <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
+                <h1
+                    style={{
+                        justifyContent: "center",
 
-                    {/* Detalles del platillo seleccionado */}
-                    {platilloEdicion && platilloActual && (
-                        <div style={{ marginBottom: "30px", }}>
-                            <h3>{platilloActual.nombre}</h3>
-                            <p>Precio: ${platilloActual.precio}</p>
+                    }}
+                > Este modulo esta desactivado por el administrador </h1>
+            </div>
+        )
+    }
 
-                            <h4>Ingredientes:</h4>
-                            {platilloActual.ingredientes.map(ingrediente => (
-                                <button
-                                    onClick={() => (handleIngredientes(ingrediente)
-                                    )}
-                                    key={ingrediente.id}
-                                    style={{
-                                        backgroundColor: listaIngredientes.find(ing => ing.id === ingrediente.id) ?
-                                            'red' : '#007bff',
-                                        color: 'white',
-                                        border: 'none',
-                                        padding: '10px',
-                                        borderRadius: '5px',
-                                        cursor: 'pointer',
-                                        margin: '5px'
-                                    }}
-                                >
-                                    <p>{ingrediente.nombre}</p>
-                                </button>
-                            ))}
-
-                            <br />
-
-                            {complementosPlatillo.length > 0 && (
-                                <div>
-                                    <h4>Complementos:</h4>
-                                    <select
-                                        onChange={handleComplementoChange}
-                                        value={complementoSeleccionado?.id || ""}
-                                        style={{ marginBottom: "15px", padding: "8px" }}
-                                    >
-                                        <option value="">Seleccione un complemento</option>
-                                        {complementosPlatillo.map((comp) => (
-                                            <option key={comp.id} value={comp.id}>
-                                                {comp.nombre}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            <br />
-
-                            {extrasPlatillo.length > 0 && (
-                                <div>
-                                    <h4>Extras:</h4>
-                                    {
-                                        extrasPlatillo.map(extra => (
-                                            <button
-                                                onClick={() => (handleExtras(extra)
-                                                )}
-                                                key={extra.id}
-                                                style={{
-                                                    backgroundColor: listaExtra.find(ext => ext.id === extra.id) ?
-                                                        'green' : '#007bff',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '10px',
-                                                    borderRadius: '5px',
-                                                    cursor: 'pointer',
-                                                    margin: '5px'
-                                                }}
-                                            >
-                                                <p>{extra.nombre}</p>
-                                                <p>${extra.precio}</p>
-                                            </button>
-
-                                        ))
-                                    }
-                                </div>
-                            )}
-
-                            <div style={{ marginBottom: "15px" }}>
-                                <label>Comentarios:</label>
-                                <textarea
-                                    value={descripcion}
-                                    onChange={(e) => setDescripcion(e.target.value)}
-                                    required
-                                    style={{ width: "100%", padding: "8px" }}
-                                />
-                            </div>
-
-                            {!personalizarPlatilloPromo && (
-                                <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: "center" }}>
-                                    <button
-                                        disabled={true}
-                                        style={{
-                                            padding: '10px 15px',
-                                            backgroundColor: 'transparent',
-                                            color: 'black',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                        }}
-                                    >
-                                        cantidad:
-                                    </button>
-
-                                    <button
-                                        onClick={() => setCantidad(cantidad - 1)}
-                                        disabled={cantidad <= 1}
-                                        style={{
-                                            padding: '10px 15px',
-                                            backgroundColor: '#007bff',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        -
-                                    </button>
-
-                                    <button
-                                        disabled={true}
-                                        style={{
-                                            padding: '10px 15px',
-                                            backgroundColor: 'transparent',
-                                            color: 'black',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                        }}
-                                    >
-                                        {cantidad}
-                                    </button>
-
-                                    <button
-                                        onClick={() => setCantidad(cantidad + 1)}
-                                        style={{
-                                            padding: '10px 15px',
-                                            backgroundColor: '#007bff',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                        }}
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                            )}
-
-                            <br />
-
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: "center" }}>
-                                {
-                                    personalizarPlatilloPromo == true ? (
-                                        <button
-                                            onClick={() => (setPlatilloActual(null), setPersonalizarPlatilloPromo(false)
-                                            )}
-                                            style={{
-                                                padding: '10px 15px',
-                                                backgroundColor: '#6c757d',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Volver a promociones
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => (setPlatilloEdicion(false),
-                                                handleReset()
-                                            )}
-                                            style={{
-                                                padding: '10px 15px',
-                                                backgroundColor: '#6c757d',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Volver a platillos
-                                        </button>
-                                    )
-                                }
-
-                                <button
-                                    onClick={editandoIndex !== null ? handleActualizarPlatillo : handleAgregarAlPedido}
-                                    style={{
-                                        padding: '10px 15px',
-                                        backgroundColor: '#28a745',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {editandoIndex !== null ? 'Modificar platillo' : 'Agregar al pedido'}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Lista de platillos seleccionados (carrito) */}
-                    {!editandoIndex && (
-                        platillosSeleccionados.map((platillo, index) => (
-                            <li
-                                key={`${index}-${Date.now()}`} // Mejor clave única
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '10px',
-                                    borderBottom: '1px solid #eee'
-                                }}
-                            >
-                                <div>
-                                    <span>{platillo.nombre} - ${platillo.precio} | Cantidad: {platillo.cantidad}</span>
-                                    {platillo.descripcion && <div>Notas: {platillo.descripcion}</div>}
-                                </div>
-                                <div>
-                                    <button
-                                        onClick={() => handleEditarPlatillo(index)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            backgroundColor: '#ffc107',
-                                            color: 'black',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                            marginRight: '5px'
-                                        }}
-                                    >
-                                        Editar
-                                    </button>
-                                    <button
-                                        onClick={() => handleQuitarPlatillo(index)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            backgroundColor: '#f44336',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Quitar
-                                    </button>
-                                </div>
-                            </li>
-                        )))}
-
-                    {/* Lista de promociones seleccionadas (carrito 2) */}
-                    {!editandoIndex && (
-                        carritoPromociones.map((promocionC, index) => (
-                            <li
-                                key={`${index}-${Date.now()}`} // Mejor clave única
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '10px',
-                                    borderBottom: '1px solid #eee'
-                                }}
-                            >
-                                <div>
-                                    <span>{promocionC.nombre} - ${promocionC.precio}</span>
-                                </div>
-                                <div>
-                                    <button
-                                        onClick={() => (handleEditarPromocion(promocionC, index)
-                                        )}
-                                        style={{
-                                            padding: '5px 10px',
-                                            backgroundColor: '#ffc107',
-                                            color: 'black',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                            marginRight: '5px'
-                                        }}
-                                    >
-                                        Editar
-                                    </button>
-                                    <button
-                                        onClick={() => handleQuitarPromoCarrito(index)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            backgroundColor: '#f44336',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Quitar
-                                    </button>
-                                </div>
-                            </li>
-                        )))
-                    }
-
-                </div>
-            )}
-        </div>
-    )
 }
 
 export default ClientesPedidos;

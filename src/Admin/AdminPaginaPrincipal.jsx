@@ -26,8 +26,7 @@ function AdminPaginaPrincipal() {
             const q = query(
                 historialRef,(
                 where('tipo', '==', 'copia_inicial'),
-                where('fechaRegistro', '>=', hoyInicio),
-                where('fechaRegistro', '<=', hoyFin))
+                where('fechaRegistro', '>=', hoyInicio))
             );
     
             const snapshot = await getDocs(q);
@@ -35,7 +34,7 @@ function AdminPaginaPrincipal() {
             if (!snapshot.empty) {
                 console.log('Ya existe una copia hoy');
                 return;
-            }
+            } 
     
             // Obtener inventario actual
             const inventarioSnapshot = await getDocs(collection(db, 'products'));

@@ -262,14 +262,15 @@ function MenuAdmin() {
                                 <td style={{ textAlign: 'center' }}>
                                     <button
                                         style={{
-                                            backgroundColor: product.bloqueo === true ? 'reed' : 'green',
-                                            color: 'white',
+                                            backgroundColor: 'white',
+                                            color: 'black',
                                             border: 'none',
                                             padding: '5px 10px',
                                             borderRadius: '5px',
                                             cursor: product.baja ? "not-allowed" : "pointer",
                                         }}
                                     >
+                                        Estatus: {" "}
                                         {product.bloqueo === true ? "Bloqueado" : "Activo"}
                                     </button>
                                 </td>

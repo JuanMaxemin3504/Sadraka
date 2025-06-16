@@ -215,9 +215,7 @@ const CuentaMesas = () => {
   };
 
   const procesarCierreCuenta = async () => {
-    try {
-      generarPDF();
-  
+    try {  
       const pedidosRef = collection(db, "ordenes");
       const q = query(
         pedidosRef,
@@ -318,10 +316,10 @@ const CuentaMesas = () => {
           if(snapIngrediente.data().ingreso == "KG"){
             cantidadADescontarReal = cantidadADescontarReal/1000;
           }
-          ValidacionIngredientesPlatillos(ingredienteId);
+          
           const nuevoStock = stockActual - cantidadADescontarReal;
                     
-          batchInventario.update(refIngrediente, { cantidad: nuevoStock });
+          batchInventario.update(refIngrediente, { cantidad: nuevoStock.toFixed(3) });
         }
       }
   
@@ -435,6 +433,13 @@ const CuentaMesas = () => {
             }
           >
             Cerrar Cuenta
+          </Button>,
+          <Button
+            key="cerrar"
+            type="primary"
+            onClick={() => generarPDF()}
+          >
+            Generar ticket
           </Button>,
         ]}
         width={800}

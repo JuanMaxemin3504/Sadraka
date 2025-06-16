@@ -49,72 +49,82 @@ function EdicionPedidosMesero() {
     }, []);
 
     const loadPromociones = async () => {
-            try {
-                const q = query(collection(db, "promociones"));
-                const querySnapshot = await getDocs(q);
-                const promocionesData = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+        try {
+          const q = query(collection(db, "promociones"));
+          const querySnapshot = await getDocs(q);
+          const promocionesData = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
     
-                const hoy = new Date();
+          const hoy = new Date();
+          const promocionesVigentes = [];
     
-                const promocionesVigentes = [];
+          for (const promo of promocionesData) {
+            let esVigente = false;
     
-                for (const promo of promocionesData) {
-                    // 1. Validar si está vigente
-                    let esVigente = false;
-    
-                    if (promo.esSemanal) {
-                        const diaSemana = hoy.getDay(); // 0=Domingo
-                        const diasActivos = [
-                            promo.dias.domingo,
-                            promo.dias.lunes,
-                            promo.dias.martes,
-                            promo.dias.miercoles,
-                            promo.dias.jueves,
-                            promo.dias.viernes,
-                            promo.dias.sabado
-                        ];
-                        esVigente = diasActivos[diaSemana];
-                    } else {
-                        const inicio = new Date(promo.fechaInicio);
-                        const fin = new Date(promo.fechaFin);
-                        esVigente = hoy >= inicio && hoy <= fin;
-                    }
-    
-                    if (!esVigente) continue;
-    
-                    // 2. Validar platillos según tipo
-                    const platillos = promo.platillos || []; // Asume que promo tiene un campo `platillos` con array de IDs
-                    if (platillos.length === 0) continue;
-    
-                    const platillosSnap = await Promise.all(
-                        platillos.map(pid => getDoc(doc(db, "menu", pid)))
-                    );
-    
-                    const bloqueados = platillosSnap.filter(doc => {
-                        const data = doc.data();
-                        return data?.bloqueo;
-                    });
-    
-                    if (
-                        (promo.tipo === 0 || promo.tipo === 1) &&
-                        bloqueados.length < platillos.length // al menos uno no bloqueado
-                    ) {
-                        promocionesVigentes.push(promo);
-                    }
-    
-                    if (promo.tipo === 2 && bloqueados.length === 0) {
-                        promocionesVigentes.push(promo);
-                    }
-                }
-    
-                setPromociones(promocionesVigentes);
-            } catch (error) {
-                console.error("Error obteniendo promociones:", error);
+            // 1. Validar vigencia
+            if (promo.esSemanal) {
+              const diaSemana = hoy.getDay(); // 0=Domingo
+              const diasActivos = [
+                promo.dias.domingo,
+                promo.dias.lunes,
+                promo.dias.martes,
+                promo.dias.miercoles,
+                promo.dias.jueves,
+                promo.dias.viernes,
+                promo.dias.sabado
+              ];
+              esVigente = diasActivos[diaSemana];
+            } else {
+              const inicio = new Date(promo.fechaInicio);
+              const fin = new Date(promo.fechaFin);
+              esVigente = hoy >= inicio && hoy <= fin;
             }
-        };
+    
+            if (!esVigente) continue;
+    
+            const platillos = promo.platillos || [];
+            if (platillos.length === 0) continue;
+    
+            // 2. Cargar platillos asociados
+            const platillosSnap = await Promise.all(
+              platillos.map(pid => getDoc(doc(db, "menu", pid.id)))
+            );
+    
+            const bloqueados = platillosSnap.filter(doc => {
+              const data = doc.data();
+              return data?.bloqueo;
+            });
+    
+            const inactivos = platillosSnap.filter(doc => {
+              const data = doc.data();
+              return !data?.estatus;
+            });
+    
+            // 3. Validar según tipo
+            if (
+              (promo.tipo === 0 || promo.tipo === 1) &&
+              bloqueados.length < platillos.length &&
+              inactivos.length < platillos.length
+            ) {
+              promocionesVigentes.push(promo);
+            }
+    
+            if (
+              promo.tipo === 2 &&
+              bloqueados.length === 0 &&
+              inactivos.length === 0
+            ) {
+              promocionesVigentes.push(promo);
+            }
+          }
+    
+          setPromociones(promocionesVigentes);
+        } catch (error) {
+          console.error("Error obteniendo promociones:", error);
+        }
+      };
 
     const ObtenerPromocion = async (promoid) => {
         try {
@@ -921,23 +931,23 @@ function EdicionPedidosMesero() {
 
                         <h4>Ingredientes:</h4>
                         {platilloActual.ingredientes.map(ingrediente => (
-                            <button
+                            ingrediente.visible ? (<button
                                 onClick={() => (handleIngredientes(ingrediente)
                                 )}
                                 key={ingrediente.id}
                                 style={{
-                                    backgroundColor: listaIngredientes.find(ing => ing.id === ingrediente.id) ?
-                                        'red' : '#007bff',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '10px',
-                                    borderRadius: '5px',
-                                    cursor: 'pointer',
-                                    margin: '5px'
+                                  backgroundColor: listaIngredientes.find(ing => ing.id === ingrediente.id) ?
+                                    'red' : '#007bff',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '10px',
+                                  borderRadius: '5px',
+                                  cursor: 'pointer',
+                                  margin: '5px'
                                 }}
-                            >
+                              >
                                 <p>{ingrediente.nombre}</p>
-                            </button>
+                              </button>) : ""
                         ))}
 
                         <br />
